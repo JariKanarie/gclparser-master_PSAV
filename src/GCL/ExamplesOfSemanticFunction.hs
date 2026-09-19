@@ -1,12 +1,12 @@
 -- Contain some simple examples showing how to write Haskell functions that 
 -- walk a datatype value to compute something.
 
-module ExamplesOfSemanticFunction where
+module GCL.ExamplesOfSemanticFunction where
 
-import GCLParser.GCLDatatype
+import GCL.GCLParser.GCLDatatype
 
 -- a function to collect all variables in a given expression. Expr is a dataype defined
--- in the module GCLParser.GCLDatatype, representing GCL expressions.
+-- in the module GCL.GCLParser.GCLDatatype, representing GCL expressions.
 collectAllVariables :: Expr -> [String]
 collectAllVariables (Var x)    = [x]
 collectAllVariables (LitI _)   = []

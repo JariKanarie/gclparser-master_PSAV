@@ -54,7 +54,7 @@ RUN git clone https://github.com/wooshrow/gclparser.git
 # This should do it. To test if your haskell-z3 is working try this from the shell 
 # inside your container:
 #    docker run --rm -it <image-id>
-#    runhaskell gclparser/examples/examplesHaskellZ3/TestZ3_simple.hs
+#    runhaskell gclparser/examples/GCL/examplesHaskellZ3/TestZ3_simple.hs
 #    exit
 # 
 # The test-file you ran should not crash.
@@ -74,6 +74,5 @@ RUN wget https://github.com/nimble-code/Spin/archive/refs/tags/version-6.5.2.zip
 #    /spin/Bin/spin651_linux64 ./spin/Examples/hello.pml
 #
 # Test-2, test that the verifier works:
-#    ./spin/Bin/spin651_linux64 -a ./spin/Examples/loops.pml 
 #    cc -DNOREDUCE -o pan pan.c
 #    ./pan

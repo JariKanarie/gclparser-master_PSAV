@@ -88,12 +88,12 @@ Unfortunately almost none. But if some of you know how to make Happy produces a 
 
 #### GCL examples and verification benchmark
 
-See in `/examples`. Pre-generated mutants of some of the examples can be found in `/examples/benchmark/mutants`.
+See in `/examples`. Pre-generated mutants of some of the examples can be found in `/examples/GCL/benchmark/mutants`.
 
 #### Z3
 
 * [A note on how to install Z3 for your Haskell project.](./docs/aboutInstallingZ3.md)
-* Some examples of how to use Z3 from Haskell: in `examples/examplesHaskellZ3`.
+* Some examples of how to use Z3 from Haskell: in `examples/GCL/examplesHaskellZ3`.
 
 #### [Papers for your Related Work section](./docs/papers.md)
 

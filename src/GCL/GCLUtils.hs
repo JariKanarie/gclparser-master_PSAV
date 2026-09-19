@@ -1,4 +1,4 @@
-module GCLUtils(
+module GCL.GCLUtils(
    parseGCLstring,    -- parser, reading from string
    parseGCLfile,      -- parser, reading from a file
    ppProgram2String,  -- pretty printer
@@ -7,10 +7,10 @@ module GCLUtils(
    mutateProgram      -- for injecting artificial errors in a program
 )
 where
-import GCLParser.Parser
-import GCLParser.PrettyPrint
-import GCLInterpreter
-import MuGCL
+import GCL.GCLParser.Parser
+import GCL.GCLParser.PrettyPrint
+import GCL.GCLInterpreter
+import GCL.MuGCL
 
 echoTestParser :: String -> IO()
 echoTestParser filename = do

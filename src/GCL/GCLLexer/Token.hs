@@ -1,4 +1,4 @@
-module GCLLexer.Token where
+module GCL.GCLLexer.Token where
 
 data Token
     = TIdent     String

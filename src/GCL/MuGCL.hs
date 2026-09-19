@@ -39,12 +39,12 @@
    case mannually.
 
 -}
-module MuGCL
+module GCL.MuGCL
 where
 
-import GCLParser.GCLDatatype
-import GCLParser.Parser
-import GCLParser.PrettyPrint
+import GCL.GCLParser.GCLDatatype
+import GCL.GCLParser.Parser
+import GCL.GCLParser.PrettyPrint
 
 data MutationType = NO_MUTATION |
      -- mutations on <= < > >=
@@ -261,7 +261,7 @@ mutateProgram (Program name inputParams outputParams body)
 
 -- tests
 test_ = do
-   gcl <- parseGCLfile "../examples/benchmark/bsort.gcl"
+   gcl <- parseGCLfile "../examples/GCL/benchmark/bsort.gcl"
    let (Right prg) = gcl
    putStrLn . ppProgram2String $ prg
    putStrLn ""

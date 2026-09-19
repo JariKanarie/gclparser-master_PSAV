@@ -1,10 +1,10 @@
 {
 {-# OPTIONS_GHC -w #-}
-module GCLParser.Parser where
+module GCL.GCLParser.Parser where
 
-import GCLLexer.Lexer
-import GCLLexer.Token
-import GCLParser.GCLDatatype
+import GCL.GCLLexer.Lexer
+import GCL.GCLLexer.Token
+import GCL.GCLParser.GCLDatatype
 
 import Debug.Trace
 }

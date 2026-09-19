@@ -26,13 +26,13 @@
 
 -}
 
-module GCLInterpreter
+module GCL.GCLInterpreter
 
 where
 
-import GCLParser.GCLDatatype
-import GCLParser.Parser
-import GCLParser.PrettyPrint
+import GCL.GCLParser.GCLDatatype
+import GCL.GCLParser.Parser
+import GCL.GCLParser.PrettyPrint
 
 -- Representation of values that result form evaluating expressions:
 data Value = Bool Bool
@@ -422,7 +422,7 @@ execProgram (Program name inputvars outputvars stmt) state =
 
 -- tests
 test_ = do
-   gcl <- parseGCLfile "../examples/benchmark/bsort.gcl"
+   gcl <- parseGCLfile "../examples/GCL/benchmark/bsort.gcl"
    let (Right prg) = gcl
    putStrLn . ppProgram2String $ prg
    let state1 = [("a", ArrayInt [4,1,3,7,0]),

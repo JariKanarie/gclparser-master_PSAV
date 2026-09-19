@@ -2,16 +2,16 @@
 -- Contains a function for generating mutants of all
 -- the programs in the PV benchmark-set.
 --
-module GenerateMutantsForBenchMark
+module GCL.GenerateMutantsForBenchMark
 where
 
-import GCLParser.Parser
-import GCLParser.PrettyPrint
-import MuGCL
+import GCL.GCLParser.Parser
+import GCL.GCLParser.PrettyPrint
+import GCL.MuGCL
 import System.Directory
 
-originalProgFolder = "examples/benchmark/"
-outputFolder = "examples/benchmark/mutants/"
+originalProgFolder = "examples/GCL/benchmark/"
+outputFolder = "examples/GCL/benchmark/mutants/"
 
 targets = ["min","memberOf", "pullUp", "divByN", "find12", "bsort"]
 

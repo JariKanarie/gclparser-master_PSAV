@@ -20,6 +20,7 @@ script = do
   _0 <- mkInteger 0
   t1 <- mkGt a b
   t2 <- mkGt b _0
+  -- t2 <- mkGt b a
   f  <- mkAnd [t1,t2]
 
   -- a > b && b > 0 to z3 state:

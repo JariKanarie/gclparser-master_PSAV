@@ -13,20 +13,26 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 Library
-  exposed-modules:     GCLParser.Parser
-                     , GCLParser.GCLDatatype
-                     , GCLParser.PrettyPrint
-                     , GCLInterpreter
-                     , MuGCL
-                     , GCLUtils
-                     , GCLLexer.Token
-                     , GCLLexer.Lexer
-                     , ExamplesOfSemanticFunction
+  exposed-modules:     GCL.GCLParser.Parser
+                     , GCL.GCLParser.GCLDatatype
+                     , GCL.GCLParser.PrettyPrint
+                     , GCL.GCLInterpreter
+                     , GCL.MuGCL
+                     , GCL.GCLUtils
+                     , GCL.GCLLexer.Token
+                     , GCL.GCLLexer.Lexer
+                     , GCL.ExamplesOfSemanticFunction
+
                      , TestZ3_from_website
                      , TestZ3_simple
                      , TestZ3_test1
                      , TestZ3_test2
                      , Z3ProverExample
+
+                     , WLP.Wlp
+                     , WLPTest 
+
+                    , WLP.Z3Oracle, WLP.PathWalker, VerifyDemo , PathWalkerDemo
   -- other-extensions:
   build-depends:       base   >= 4.10
                      , array
@@ -35,7 +41,8 @@ Library
                      , pretty
                      , directory
                      , z3
-  hs-source-dirs:      src , examples/examplesHaskellZ3
+                     , process
+  hs-source-dirs:      src , examples/GCL/examplesHaskellZ3 , examples/WLP
   -- location to z3 bin and lib:
   -- extra-lib-dirs:      ~/workshop/tools/z3-4.8.8/bin
   -- extra-include-dirs:  ~/workshop/tools/z3-4.8.8/bin

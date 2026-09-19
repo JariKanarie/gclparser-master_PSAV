@@ -1,10 +1,10 @@
-module GCLParser.PrettyPrint where
+module GCL.GCLParser.PrettyPrint where
 
 import Prelude hiding ((<>))
 import Data.List      (intersperse)
 import Text.PrettyPrint
 
-import GCLParser.GCLDatatype
+import GCL.GCLParser.GCLDatatype
 
 ppProgram2String :: Program -> String
 ppProgram2String prg = show . ppProgram $ prg
