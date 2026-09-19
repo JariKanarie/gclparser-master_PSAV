@@ -31,8 +31,6 @@ Library
 
                      , WLP.Wlp
                      , WLPTest 
-
-                    , WLP.Z3Oracle, WLP.PathWalker, VerifyDemo , PathWalkerDemo
   -- other-extensions:
   build-depends:       base   >= 4.10
                      , array
