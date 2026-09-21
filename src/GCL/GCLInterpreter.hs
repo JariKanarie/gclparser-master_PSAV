@@ -422,7 +422,7 @@ execProgram (Program name inputvars outputvars stmt) state =
 
 -- tests
 test_ = do
-   gcl <- parseGCLfile "../examples/GCL/benchmark/bsort.gcl"
+   gcl <- parseGCLfile "examples/GCL/benchmark/bsort.gcl"
    let (Right prg) = gcl
    putStrLn . ppProgram2String $ prg
    let state1 = [("a", ArrayInt [4,1,3,7,0]),

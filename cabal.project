@@ -1,0 +1,5 @@
+packages: .
+
+package z3
+  extra-include-dirs: C:\workshop\tools\z3\z3-4.8.8-x64-win\include
+  extra-lib-dirs: C:\workshop\tools\z3\z3-4.8.8-x64-win\bin
