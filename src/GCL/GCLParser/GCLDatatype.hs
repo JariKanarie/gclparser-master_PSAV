@@ -80,7 +80,6 @@ data Expr
     | LitI               Int     
     | LitB               Bool    
     | LitNull
-    | Parens             Expr    
     | ArrayElem          Expr   Expr   
     | OpNeg              Expr    
     | BinopExpr          BinOp  Expr   Expr
@@ -133,7 +132,6 @@ instance Show Expr where
     show (LitB False)               = "false"
     show LitNull                    = "null"
     show (Dereference u)            = u ++ ".val"
-    show (Parens e)                 = "(" ++ show e ++ ")"
     show (ArrayElem var index)      = show var ++ "[" ++ show index ++ "]"
     show (OpNeg expr)               = "~" ++ show expr
     show (BinopExpr op e1 e2)       = "(" ++ show e1 ++ " " ++ show op ++ " " ++ show e2 ++ ")"
