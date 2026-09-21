@@ -92,7 +92,6 @@ mutateExpr expr = filter (\m -> fst m /= NO_MUTATION) $ mutate expr
       LitI x  -> [(NO_MUTATION, expr)]
       LitB x  -> [(NO_MUTATION, expr)]
       LitNull -> [(NO_MUTATION, expr)]
-      Parens e ->  [ Parens $> e' | e' <- mutate e]
       ArrayElem a i ->
          let
          group1 = map ((\a_ -> ArrayElem a_ i) $>) $ mutate a

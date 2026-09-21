@@ -32,7 +32,6 @@ subst x e1 = go
     go v@(LitI _)         = v
     go v@(LitB _)         = v
     go LitNull            = LitNull
-    go (Parens e2)        = Parens (go e2)
     go (ArrayElem a i)    = ArrayElem (go a) (go i)
     go (OpNeg e2)         = OpNeg (go e2)
     go (BinopExpr op a b) = BinopExpr op (go a) (go b)

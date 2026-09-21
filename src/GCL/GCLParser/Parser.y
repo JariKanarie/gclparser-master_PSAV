@@ -153,7 +153,7 @@ PExpr :: { Expr }
        | intvalue                                       { LitI $1 }
        | minus intvalue                                 { LitI (-$2) }
        | boolvalue                                      { LitB $1 }
-       | popen PExpr pclose                             { Parens $2 }
+       | popen PExpr pclose                             { $2 }
        | identifier sopen PExpr sclose                  { ArrayElem (Var $1) $3 }
        | sizeof identifier                              { SizeOf (Var $2) }
        | neg PExpr                                      { OpNeg $2 } 
@@ -186,7 +186,6 @@ PExpr :: { Expr }
 type ParseResult a = Either String a
 
 rename :: String -> String -> Expr -> Expr
-rename new old (Parens e)                 = Parens (rename new old e)
 rename new old (OpNeg e)                  = OpNeg (rename new old e)
 rename new old (BinopExpr opr e1 e2)      = BinopExpr opr (rename new old e1) (rename new old e2)
 rename new old (Forall x e)               = Forall x (rename new old e)

@@ -172,7 +172,6 @@ instantiateVarWithInt vname i expr = case expr of
    LitI _   ->  expr
    LitB _   ->  expr
    LitNull  -> expr
-   Parens e -> Parens (instantiateVarWithInt vname i e)
    ArrayElem a e -> ArrayElem a (instantiateVarWithInt vname i e)
    OpNeg e    -> OpNeg (instantiateVarWithInt vname i e)
    BinopExpr op e1 e2 -> BinopExpr op (instantiateVarWithInt vname i e1) (instantiateVarWithInt vname i e2)
@@ -200,7 +199,6 @@ eval state expr = case expr of
   LitI i -> Right $ Int i
   LitB b -> Right $ Bool b
   LitNull ->  Right $ null_
-  Parens e -> eval state  e
 
   ArrayElem a i -> do
     a_ <- eval state a
