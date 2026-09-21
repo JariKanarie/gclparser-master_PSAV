@@ -10,6 +10,7 @@ module WLP.Wlp
 import GCL.GCLParser.GCLDatatype
 import GCL.ExamplesOfSemanticFunction (freeVariables)
 import Data.Set hiding (foldr, map, filter)
+import WLP.Invariant (findInvariantStmt)
 
 -- | get a set of free variables in expression e.
 freeVars :: Expr -> Set String
@@ -67,8 +68,8 @@ wlp (Block _ s)      q = wlp s q -- Local declarations should already be uniquel
 -- [TODO] The following cases are not handled (yet) by wlp, since they are either optional (TryCatch) or not part of a linear path (IfThenElse, While, DrefAssign).
 wlp s@(DrefAssign {}) _ = error ("wlp: " ++ show s)
 wlp s@(TryCatch {})   _ = error ("wlp: " ++ show s)
-wlp s@(IfThenElse {}) _ = error ("wlp: got a branch (" ++ show s ++ ")")
-wlp s@(While {})      _ = error ("wlp: got a loop (" ++ show s ++ ")")
+wlp (IfThenElse g t e) q = opAnd g (wlp t q) `opOr` opAnd (OpNeg g) (wlp e q)
+wlp (While g body)    q = wlp (findInvariantStmt 10 g body) q
 
 -- | Convenience for a path represented as an ordered list of statements rather than a pre-built Seq-chain.
 wlpPath :: [Stmt] -> Expr -> Expr

@@ -31,6 +31,9 @@ Library
 
                      , WLP.Wlp
                      , WLPTest 
+                     , WLP.Invariant
+                     , InvariantTest
+                     , WLP.Simplify
   -- other-extensions:
   build-depends:       base   >= 4.10
                      , array
