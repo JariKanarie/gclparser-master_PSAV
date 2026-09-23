@@ -12,6 +12,8 @@ main = do
     let (Right prg) = gcl
 
     let a = wlp (stmt prg) (LitB True)
+    print a
+    putStrLn "====="
     print $ simplifyExpr a
     
     return ()
