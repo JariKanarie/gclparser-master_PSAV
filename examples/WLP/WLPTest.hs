@@ -35,7 +35,7 @@ ePath =
   (Seq (Assign "x" (minus1 (Var "x")))
   (Seq (Assume (OpNeg (opLessThan (LitI 0) (Var "x"))))
   (Seq (Assign "y" (Var "x"))
-       (Assert (opEqual (Var "y") (LitI 1)))))))))
+       (Assert (opEqual (Var "y") (LitI 0)))))))))
 
 -- 3. Branch prefix B0
 prefixB0 :: Stmt

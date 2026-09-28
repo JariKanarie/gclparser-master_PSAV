@@ -10,6 +10,7 @@ import Control.Monad.IO.Class (liftIO)
 -- TODO: these are for the test, might need to be removed 21/09/2026
 import WLPTest as Test
 import WLP.Wlp
+import GCL.GCLParser.Parser ( parseGCLfile )
 
 -- Environment mapping GCL variable names to their Z3 AST node
 type Env = Map.Map String AST
@@ -189,6 +190,11 @@ verifyPath path postCond = do
   verifyWLP wlpFormula
 
 main :: IO ()
-main = verifyPath [Test.path1] (LitB True)  -- path is wrong, is still hardcoded, but requires a call from different file 
+main = do
+  gcl <- parseGCLfile "examples/GCL/simpletest.gcl"
+  let (Right prg) = gcl
+  verifyPath [stmt prg] (LitB True)
+  
+  -- verifyPath [Test.ePath] (LitB True)  -- path is wrong, is still hardcoded, but requires a call from different file 
                                             -- and still uses a path, while it should use the result of the WLP.
                                             -- In buildZ3Formula the wlp function is used!!! needs to removed
