@@ -191,7 +191,7 @@ verifyPath path postCond = do
 
 main :: IO ()
 main = do
-  gcl <- parseGCLfile "examples/GCL/simpletest.gcl"
+  gcl <- parseGCLfile "examples/GCL/simpletest.gcl" -- simpletest only one that works without while and if-then-else statement from .gcl files
   let (Right prg) = gcl
   verifyPath [stmt prg] (LitB True)
   
