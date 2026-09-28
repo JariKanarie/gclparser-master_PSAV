@@ -1,8 +1,11 @@
 module Z3ModelChecker where
 
 import GCL.GCLParser.GCLDatatype
+import qualified Data.Map as Map
+import qualified Data.Set as Set
 
 import Z3.Monad
+import Control.Monad.IO.Class (liftIO)
 
 -- TODO: these are for the test, might need to be removed 21/09/2026
 import WLPTest as Test
@@ -24,45 +27,55 @@ exprToZ3 env expr = case expr of
     Just ast -> return ast
     Nothing  -> error $ "Variable not bound in environment: " ++ name
 
-  -- Binary Arithmetic & Logic Operators
-  BinopExpr OpPlus  e1 e2 -> binaryOp (\x y -> mkAdd [x, y]) e1 e2
-  BinopExpr OpMinus e1 e2 -> binaryOp (\x y -> mkSub [x, y]) e1 e2
-  BinopExpr OpMul   e1 e2 -> binaryOp (\x y -> mkMul [x, y]) e1 e2
-  BinopExpr OpDiv   e1 e2 -> binaryOp mkDiv e1 e2
-  BinopExpr OpAnd   e1 e2 -> binaryOp (\x y -> mkAnd [x, y]) e1 e2
-  BinopExpr OpOr    e1 e2 -> binaryOp (\x y -> mkOr [x, y]) e1 e2
-  BinopExpr OpEq    e1 e2 -> binaryOp mkEq e1 e2
-  BinopExpr OpNEq   e1 e2 -> binaryOp (\x y -> mkNot =<< mkEq x y) e1 e2
-  BinopExpr OpLt    e1 e2 -> binaryOp mkLt e1 e2
-  BinopExpr OpLte   e1 e2 -> binaryOp mkLe e1 e2
-  BinopExpr OpGt    e1 e2 -> binaryOp mkGt e1 e2
-  BinopExpr OpGte   e1 e2 -> binaryOp mkGe e1 e2
-  BinopExpr OpImpl  e1 e2 -> binaryOp mkImplies e1 e2
+  -- Binary Arithmetic & Logic Operators // type do not correspond with datatype
+  BinopExpr op e1 e2 -> case op of
+    -- Arithmetic (Returns Int)
+    Plus     -> binaryIntOp (\x y -> mkAdd [x, y]) e1 e2
+    Minus    -> binaryIntOp (\x y -> mkSub [x, y]) e1 e2
+    Multiply -> binaryIntOp (\x y -> mkMul [x, y]) e1 e2
+    Divide   -> binaryIntOp mkDiv e1 e2
+
+    -- Relational (Returns Bool)
+    Equal            -> binaryOp mkEq e1 e2
+    LessThan         -> binaryOp mkLt e1 e2
+    LessThanEqual    -> binaryOp mkLe e1 e2
+    GreaterThan      -> binaryOp mkGt e1 e2
+    GreaterThanEqual -> binaryOp mkGe e1 e2
+    Alias            -> binaryOp mkEq e1 e2 -- Not sure but just to be sure
+
+    -- Logical (Returns Bool)
+    And         -> binaryBoolOp (\x y -> mkAnd [x, y]) e1 e2
+    Or          -> binaryBoolOp (\x y -> mkOr [x, y]) e1 e2
+    Implication -> binaryBoolOp mkImplies e1 e2
 
   -- Unary Operators
   OpNeg e -> do
     ast <- exprToZ3 env e
-    mkNot ast
+    sort <- getSort ast
+    kind <- getSortKind sort
+    if kind == Z3_INT_SORT
+      then mkUnaryMinus ast
+      else mkNot ast
 
   -- Array Read: a[i] -> Z3 select(a, i)
   ArrayElem arrExpr idxExpr -> do
     arrAst <- exprToZ3 env arrExpr
-    idxAst <- exprToZ3 env idxExpr
+    idxAst <- ensureInt env idxExpr
     mkSelect arrAst idxAst
 
   -- Array Store Mutation: RepBy a idx val -> Z3 store(a, idx, val)
   RepBy arrExpr idxExpr valExpr -> do
     arrAst <- exprToZ3 env arrExpr
-    idxAst <- exprToZ3 env idxExpr
+    idxAst <- ensureInt env idxExpr
     valAst <- exprToZ3 env valExpr
     mkStore arrAst idxAst valAst
 
-  -- Parentheses
-  Parens e -> exprToZ3 env e
+--   -- Parentheses
+--   Parens e -> exprToZ3 env e // 
 
   -- If-Then-Else / Conditionals: Cond g t f -> Z3 ite(g, t, f)
   Cond g t f -> do
-    gAst <- exprToZ3 env g
+    gAst <- ensureBool env g
     tAst <- exprToZ3 env t
     fAst <- exprToZ3 env f
     mkIte gAst tAst fAst
@@ -75,94 +88,107 @@ exprToZ3 env expr = case expr of
       a2 <- exprToZ3 env e2
       op a1 a2
 
--- | Verify an Expr formula with Z3 on Example 3, not dynamic yet.
-verifyFormula :: Expr -> IO ()
-verifyFormula gclExpr = do
+    binaryIntOp op e1 e2 = do
+      a1 <- ensureInt env e1
+      a2 <- ensureInt env e2
+      op a1 a2
 
-  result <- evalZ3 $ do
+    binaryBoolOp op e1 e2 = do
+      a1 <- ensureBool env e1
+      a2 <- ensureBool env e2
+      op a1 a2
 
-    -- 1. Create sorts
-    intSort <- mkIntSort
-    arraySort <- mkArraySort intSort intSort
+ensureInt :: Env -> Expr -> Z3 AST
+ensureInt env expr = do
+  ast <- exprToZ3 env expr
+  sort <- getSort ast
+  kind <- getSortKind sort
+  if kind == Z3_BOOL_SORT
+    then do
+      one  <- mkIntNum 1
+      zero <- mkIntNum 0
+      mkIte ast one zero
+    else return ast
 
-    -- 2. Declare variables
-    iVar <- mkFreshConst "i" intSort
-    aVar <- mkFreshConst "a" arraySort
+-- | Helper to force an AST expression to be of sort Bool
+ensureBool :: Env -> Expr -> Z3 AST
+ensureBool env expr = do
+  ast <- exprToZ3 env expr
+  sort <- getSort ast
+  kind <- getSortKind sort
+  if kind == Z3_INT_SORT
+    then do
+      zero <- mkIntNum 0
+      mkNot =<< mkEq ast zero
+    else return ast
 
-    -- 3. Build the Z3 AST representation
-    --
-    -- The formula we are checking is:
-    --
-    --     (i = 1) ==> (a2[i - 1] = 0)
-    --
-    -- where:
-    --
-    --     a1 = a[(i - 1) := 0]
-    --     a2 = a1[((i - 1) + 1) := 1]
+-- | Takes an Expr (WLP result) and produces a Z3 AST
+buildZ3Formula :: Expr -> Z3 AST
+buildZ3Formula wlpFormula = do
+  let vars = freeVars wlpFormula
 
-    zero <- mkIntNum 0
-    one  <- mkIntNum 1
+  intSort <- mkIntSort
+  arrSort <- mkArraySort intSort intSort
 
-    -- i - 1
-    iMinus1 <- mkSub [iVar, one]
+  envList <- mapM (\v -> do
+      z3Var <- if v `elem` ["a", "b"]
+                  then mkFreshConst v arrSort
+                  else mkFreshConst v intSort
+      return (v, z3Var)
+    ) (Set.toList vars)
+  
+  let env = Map.fromList envList   
+  ensureBool env wlpFormula
 
-    -- a[(i - 1) := 0]
-    a1 <- mkStore aVar iMinus1 zero
-
-    -- (i - 1) + 1
-    idx2 <- mkAdd [iMinus1, one]
-
-    -- a1[((i - 1) + 1) := 1]
-    a2 <- mkStore a1 idx2 one
-
-    -- a2[i - 1]
-    readVal <- mkSelect a2 iMinus1
-
-    -- a2[i - 1] = 0
-    eq0 <- mkEq readVal zero
-
-    -- i = 1
-    condI <- mkEq iVar one
-
-    -- (i = 1) ==> (a2[i - 1] = 0)
-    wlpAst <- mkImplies condI eq0
-
-    -- 4. Negate the WLP.
-    --
-    -- We ask Z3 whether:
-    --
-    --     NOT WLP
-    --
-    -- is satisfiable.
-    --
-    -- UNSAT => WLP is valid.
-    -- SAT   => counterexample exists.
-    notWlp <- mkNot wlpAst
-    assert notWlp
-
-    -- 5. Check satisfiability
-    check
-
+checkFormulaSatisfiability :: AST -> Z3 ()
+checkFormulaSatisfiability wlpAst = do
+--Negate formula and check with Z3
+--Negation is required because normally it checks for 1 variable as counterexample, now it asks to check if there are any variables
+  notWlp <- mkNot wlpAst 
+  assert notWlp
+  
+  (result, mModel) <- solverCheckAndGetModel 
   case result of
+    Unsat -> liftIO $ putStrLn "UNSAT: (Formula is valid for all inputs)"
+    Sat   -> case mModel of
+      Just model -> do
+        str <- modelToString model
+        liftIO $ do               
+          putStrLn "SAT: (Counterexample found)"
+          putStrLn "Counterexample Model:"
+          putStrLn str
+      Nothing -> liftIO $ putStrLn "SAT: (Counterexample found, but no model available)"
+    Undef -> liftIO $ putStrLn "UNKNOWN/UNDEF: (Solver timed out or was inconclusive)"
 
-    Unsat ->
-      putStrLn
-        "VERDICT: ACCEPT (Formula is valid for all inputs)"
+verifyWLP :: Expr -> IO ()
+verifyWLP wlpExpr = evalZ3 $ do
+  wlpAst <- buildZ3Formula wlpExpr
+  
+  -- FOR TESTING
+  astStr <- astToString wlpAst
+  liftIO $ do
+    putStrLn "\n=== 3. Translated Z3 SMT-LIB Formula ==="
+    putStrLn astStr
 
-    Sat -> do
-      putStrLn
-        "VERDICT: REJECT (Counterexample found)"
+  -- KEEP
+  checkFormulaSatisfiability wlpAst
 
-      putStrLn
-        "Z3 found a satisfying assignment for the negated WLP."
+-- verifyPath :: [Stmt] -> Expr -> IO ()
+-- verifyPath path postCond = verifyWLP (wlpPath path postCond)
 
-    Undef ->
-      putStrLn
-        "VERDICT: UNKNOWN (Solver timed out or was inconclusive)"
+verifyPath :: [Stmt] -> Expr -> IO ()
+verifyPath path postCond = do
+  let wlpFormula = wlpPath path postCond
+  
+  -- FOR TESTING
+  putStrLn "=== 1. Raw GCL WLP Expression ==="
+  print wlpFormula
+  putStrLn "=================================\n"
 
+  -- KEEP
+  verifyWLP wlpFormula
 
 main :: IO ()
-main = do
-  let path = Test.path1
-  let wlpFormula = wlp path (LitB True)
-  verifyFormula wlpFormula
+main = verifyPath [Test.path1] (LitB True)  -- path is wrong, is still hardcoded, but requires a call from different file 
+                                            -- and still uses a path, while it should use the result of the WLP.
+                                            -- In buildZ3Formula the wlp function is used!!! needs to removed

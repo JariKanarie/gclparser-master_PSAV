@@ -6,6 +6,8 @@ module WLPTest
   , main
   ) where
 
+-- These imports are bad but required for testing, later needs to be removed
+
 import GCL.GCLParser.GCLDatatype
 import WLP.Wlp
 
