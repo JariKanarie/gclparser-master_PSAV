@@ -1,6 +1,6 @@
 module WLP.Simplify where
 import GCL.GCLParser.GCLDatatype
-import Data.Bifunctor (first)
+import Data.Bifunctor (first, second)
 import Data.List (partition)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -25,8 +25,8 @@ simplifyBinopExpr :: BinOp -> Expr -> Expr -> Expr
 simplifyBinopExpr op a b
     | op == And = retree op (LitB True) . collapseOn (LitB False) . filter (/= LitB True) . combineRangesAnd . map simplifyExpr $ combineSame op a b
     | op == Or = retree op (LitB False) . collapseOn (LitB True) . filter (/= LitB False) . combineRangesOr . map simplifyExpr $ combineSame op a b
-    | op == Plus = retree op (LitI 0) . sumLitI $ combineSame op a b
-    | op == Minus = retreeMin . sumNegLitI $ combineWithDir op a b
+    | op == Plus = retree op (LitI 0) . sumLitI . map simplifyExpr $ combineSame op a b
+    | op == Minus = retreeMin . sumNegLitI . map (second simplifyExpr) $ combineWithDir op a b
     | op `elem` comparisons = simplifyComparison op a b
     | op == Implication = simplifyExpr $ BinopExpr Or (OpNeg simpleA) simpleB
     | otherwise = BinopExpr op simpleA simpleB
@@ -73,7 +73,7 @@ combineWithDir op aexpr bexpr = expand False aexpr ++ expand True bexpr
 retree :: BinOp -> Expr -> [Expr] -> Expr
 retree _  i []     = i
 retree _  _ [x]    = x
-retree op i (x:xs) = BinopExpr op (simplifyExpr x) $ retree op i xs
+retree op i (x:xs) = BinopExpr op x $ retree op i xs
 
 retreeMin :: [(Bool, Expr)] -> Expr
 retreeMin l
