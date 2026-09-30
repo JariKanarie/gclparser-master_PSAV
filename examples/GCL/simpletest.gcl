@@ -1,0 +1,7 @@
+// Just a very simple example; it is faulty or change it
+E(x:int | y:int){
+  assume 1<x ;
+  y:=x ;
+  y:=15 ;
+  assert y<14
+}

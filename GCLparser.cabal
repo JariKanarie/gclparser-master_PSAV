@@ -43,7 +43,7 @@ Library
                      , directory
                      , z3
                      , process
-  hs-source-dirs:      src , examples/GCL/examplesHaskellZ3 , examples/WLP
+  hs-source-dirs:      src , examples/GCL/examplesHaskellZ3 , examples/WLP , examples/WLP/WLPTest
   -- location to z3 bin and lib:
   -- extra-lib-dirs:      ~/workshop/tools/z3-4.8.8/bin
   -- extra-include-dirs:  ~/workshop/tools/z3-4.8.8/bin
