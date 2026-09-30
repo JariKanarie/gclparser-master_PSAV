@@ -1,4 +1,4 @@
-module Z3ModelChecker where
+module WLP.Z3ModelChecker where
 
 import GCL.GCLParser.GCLDatatype
 import qualified Data.Map as Map
