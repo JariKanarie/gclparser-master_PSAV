@@ -69,7 +69,7 @@ wlp (Block _ s)      q = wlp s q -- Local declarations should already be uniquel
 wlp s@(DrefAssign {}) _ = error ("wlp: " ++ show s)
 wlp s@(TryCatch {})   _ = error ("wlp: " ++ show s)
 wlp (IfThenElse g t e) q = opAnd g (wlp t q) `opOr` opAnd (OpNeg g) (wlp e q)
-wlp (While g body)    q = wlp (findInvariantStmt 10 g body) q
+wlp (While g body)    q = wlp (findInvariantStmt 5 g body) q
 
 -- | Convenience for a path represented as an ordered list of statements rather than a pre-built Seq-chain.
 wlpPath :: [Stmt] -> Expr -> Expr
