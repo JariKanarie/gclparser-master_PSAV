@@ -11,6 +11,7 @@ import Control.Monad.IO.Class (liftIO)
 import WLPTest as Test
 import WLP.Wlp
 import GCL.GCLParser.Parser ( parseGCLfile )
+import Data.Typeable (typeOf)
 
 -- Environment mapping GCL variable names to their Z3 AST node
 type Env = Map.Map String AST
@@ -64,15 +65,17 @@ exprToZ3 env expr = case expr of
     idxAst <- ensureInt env idxExpr
     mkSelect arrAst idxAst
 
+  -- Handle of #a example: (0 < i < #a)
+  SizeOf (Var name) -> case Map.lookup ("#" ++ name) env of
+    Just ast -> return ast
+    Nothing  -> error $ "var not in environment: #" ++ name -- should't happen if wlp is correctly implemented
+
   -- Array Store Mutation: RepBy a idx val -> Z3 store(a, idx, val)
   RepBy arrExpr idxExpr valExpr -> do
     arrAst <- exprToZ3 env arrExpr
     idxAst <- ensureInt env idxExpr
     valAst <- exprToZ3 env valExpr
     mkStore arrAst idxAst valAst
-
---   -- Parentheses
---   Parens e -> exprToZ3 env e // 
 
   -- If-Then-Else / Conditionals: Cond g t f -> Z3 ite(g, t, f)
   Cond g t f -> do
@@ -81,7 +84,25 @@ exprToZ3 env expr = case expr of
     fAst <- exprToZ3 env f
     mkIte gAst tAst fAst
 
-  other -> error $ "Type hasn't been programmed yet " ++ show other
+  -- Universal quantifer (for all: ∀)
+  Forall varName bodyExpr -> do
+    intSort <- mkIntSort
+    boundVarAst <- mkFreshConst varName intSort
+    boundVarApp <- toApp boundVarAst
+    let localEnv = Map.insert varName boundVarAst env
+    bodyAst <- ensureBool localEnv bodyExpr
+    mkForallConst [] [boundVarApp] bodyAst
+
+  -- Existential quantifier (there exits: ∃)
+  Exists varName bodyExpr -> do
+    intSort <- mkIntSort
+    boundVarAst <- mkFreshConst varName intSort
+    boundVarApp <- toApp boundVarAst
+    let localEnv = Map.insert varName boundVarAst env
+    bodyAst <- ensureBool localEnv bodyExpr
+    mkExistsConst [] [boundVarApp] bodyAst
+
+  other -> error $ "Type hasn't been programmed yet: " ++ show other ++ " of type: " ++ show (typeOf other)
 
   where
     binaryOp op e1 e2 = do
@@ -111,7 +132,7 @@ ensureInt env expr = do
       mkIte ast one zero
     else return ast
 
--- | Helper to force an AST expression to be of sort Bool
+-- | Function to force an AST expression to be of sort Bool
 ensureBool :: Env -> Expr -> Z3 AST
 ensureBool env expr = do
   ast <- exprToZ3 env expr
@@ -131,11 +152,17 @@ buildZ3Formula wlpFormula = do
   intSort <- mkIntSort
   arrSort <- mkArraySort intSort intSort
 
-  envList <- mapM (\v -> do
-      z3Var <- if v `elem` ["a", "b"]
-                  then mkFreshConst v arrSort
-                  else mkFreshConst v intSort
-      return (v, z3Var)
+  envList <- concat <$> mapM (\v -> do
+    if v `elem` ["a", "b"]
+      then do
+        z3Arr  <- mkFreshConst v arrSort
+        z3Size <- mkFreshConst ("#" ++ v) intSort -- SMT variable named "#a"
+        return [ (v, z3Arr)
+               , ("#" ++ v, z3Size)
+               ]
+      else do
+        z3Var <- mkFreshConst v intSort
+        return [(v, z3Var)]
     ) (Set.toList vars)
   
   let env = Map.fromList envList   
@@ -179,19 +206,19 @@ verifyWLP wlpExpr = evalZ3 $ do
 
 verifyPath :: [Stmt] -> Expr -> IO ()
 verifyPath path postCond = do
-  let wlpFormula = wlpPath path postCond
-  
+
   -- FOR TESTING
+  let wlpFormula = wlpPath path postCond -- wlpPath should be done somewhere else and the formula should just be given as a paramater
   putStrLn "=== 1. Raw GCL WLP Expression ==="
   print wlpFormula
   putStrLn "=================================\n"
 
-  -- KEEP
+  -- KEEP 
   verifyWLP wlpFormula
 
 main :: IO ()
 main = do
-  gcl <- parseGCLfile "examples/GCL/simpletest.gcl" -- simpletest only one that works without while and if-then-else statement from .gcl files
+  gcl <- parseGCLfile "examples/GCL/reverse.gcl" -- simpletest only one that works without while and if-then-else statement from .gcl files
   let (Right prg) = gcl
   verifyPath [stmt prg] (LitB True)
   
