@@ -177,12 +177,12 @@ checkFormulaSatisfiability wlpAst = do
   
   (result, mModel) <- solverCheckAndGetModel 
   case result of
-    Unsat -> liftIO $ putStrLn "UNSAT: (Formula is valid for all inputs)"
+    Unsat -> liftIO $ putStrLn "SAT: (Formula is valid for all inputs)"
     Sat   -> case mModel of
       Just model -> do
         str <- modelToString model
         liftIO $ do               
-          putStrLn "SAT: (Counterexample found)"
+          putStrLn "UNSAT: (Counterexample found)"
           putStrLn "Counterexample Model:"
           putStrLn str
       Nothing -> liftIO $ putStrLn "SAT: (Counterexample found, but no model available)"
@@ -218,7 +218,7 @@ verifyPath path postCond = do
 
 main :: IO ()
 main = do
-  gcl <- parseGCLfile "examples/GCL/reverse.gcl" -- simpletest only one that works without while and if-then-else statement from .gcl files
+  gcl <- parseGCLfile "examples/GCL/benchmark/memberOf.gcl" -- simpletest only one that works without while and if-then-else statement from .gcl files
   let (Right prg) = gcl
   verifyPath [stmt prg] (LitB True)
   
