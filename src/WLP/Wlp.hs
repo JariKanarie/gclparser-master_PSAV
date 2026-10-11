@@ -5,6 +5,7 @@ module WLP.Wlp
   , feasibilityCondPath
   , subst
   , freeVars
+  , exprSize
   ) where
 
 import GCL.GCLParser.GCLDatatype
@@ -18,7 +19,7 @@ freeVars = fromList . freeVariables
 -- | A name derived from 'base' that isn't in 'used'.
 newVar :: String -> Set String -> String
 newVar base used = head (filter (`notMember` used) vars)
-  where vars = [ base ++ show n | n <- [(0 :: Int) ..] ]
+  where vars = [base ++ "$" ++ show n | n <- [(0 :: Int) ..]]
 
 -- | @subst x e f@ is @f[e\x]@: replace every free occurrence of variable @x@ in @f@ with @e@.
 -- Capture-avoiding: a quantifier whose bound name would otherwise capture a variable free in @e@ gets alpha-renamed first.
@@ -39,7 +40,6 @@ subst x e1 = go
     go (RepBy a i v)      = RepBy (go a) (go i) (go v)
     go (Cond g t f)       = Cond (go g) (go t) (go f)
     go (NewStore e2)      = NewStore (go e2)
-    -- [TODO] dereference is not handled yet.
     go d@(Dereference _)  = d 
     go (Forall y e2)    = bindVar Forall y e2
     go (Exists y e2)    = bindVar Exists y e2
@@ -88,3 +88,19 @@ feasibilityCond s               _ = error ("feasibilityCond: unexpected " ++ sho
 -- | 'feasibilityCond' for a path given as a statement list, similar to 'wlpPath'.
 feasibilityCondPath :: [Stmt] -> Expr
 feasibilityCondPath stmts = feasibilityCond (foldr Seq Skip stmts) (LitB True)
+
+exprSize :: Expr -> Int
+exprSize (Var _)             = 1
+exprSize (LitI _)            = 1
+exprSize (LitB _)            = 1
+exprSize LitNull              = 1
+exprSize (ArrayElem a i)     = exprSize a + exprSize i
+exprSize (OpNeg e)           = exprSize e
+exprSize (BinopExpr _ e1 e2) = exprSize e1 + exprSize e2
+exprSize (Forall _ e)        = exprSize e
+exprSize (Exists _ e)        = exprSize e
+exprSize (SizeOf e)          = exprSize e
+exprSize (RepBy a i v)       = exprSize a + exprSize i + exprSize v
+exprSize (Cond g t f)        = exprSize g + exprSize t + exprSize f
+exprSize (NewStore e)        = exprSize e
+exprSize (Dereference _)     = 1

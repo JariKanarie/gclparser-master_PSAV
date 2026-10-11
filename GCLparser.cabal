@@ -27,10 +27,15 @@ Library
                      , TestZ3_simple
                      , TestZ3_test1
                      , TestZ3_test2
+                     , Z3.Z3ModelChecker
                      , Z3ProverExample
 
                      , WLP.Wlp
                      , WLPTest 
+
+                     , WLP.ProgramTypes
+                     , WLP.PathGen
+                     , Main
   -- other-extensions:
   build-depends:       base   >= 4.10
                      , array
@@ -40,6 +45,8 @@ Library
                      , directory
                      , z3
                      , process
+                     , time
+                     , filepath
   hs-source-dirs:      src , examples/GCL/examplesHaskellZ3 , examples/WLP , examples/WLP/WLPTest
   -- location to z3 bin and lib:
   -- extra-lib-dirs:      ~/workshop/tools/z3-4.8.8/bin
@@ -49,3 +56,4 @@ Library
   GHC-Options:         -Wall
   default-extensions:  TupleSections
                      , NamedFieldPuns
+                     , ScopedTypeVariables
