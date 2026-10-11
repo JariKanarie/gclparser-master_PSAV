@@ -2,16 +2,17 @@ module InvariantTest where
 
 import WLP.Invariant
 import GCL.GCLParser.Parser (parseGCLfile)
-import WLP.Wlp (wlp)
+import WLP.Wlp
 import GCL.GCLParser.GCLDatatype (Program(stmt), Expr (LitB))
 import WLP.Simplify (simplifyExpr)
+import Z3.Monad (evalZ3)
 
 main :: IO ()
 main = do
     gcl <- parseGCLfile "examples/GCL/E.gcl"
     let (Right prg) = gcl
 
-    let a = wlp (stmt prg) (LitB True)
+    a <- evalZ3 $ wlpZ3 (stmt prg) (LitB True)
     print a
     putStrLn "====="
     print $ simplifyExpr a

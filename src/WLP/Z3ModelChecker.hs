@@ -7,9 +7,7 @@ import qualified Data.Set as Set
 import Z3.Monad
 import Control.Monad.IO.Class (liftIO)
 
--- TODO: these are for the test, might need to be removed 21/09/2026
-import WLPTest as Test
-import WLP.Wlp
+import WLP.Helper
 import GCL.GCLParser.Parser ( parseGCLfile )
 
 -- Environment mapping GCL variable names to their Z3 AST node
@@ -174,12 +172,24 @@ verifyWLP wlpExpr = evalZ3 $ do
   -- KEEP
   checkFormulaSatisfiability wlpAst
 
+verifyExpr :: Expr -> Z3 Bool 
+verifyExpr expr = do
+  wlpAst <- buildZ3Formula expr
+  notWlp <- mkNot wlpAst
+  assert notWlp
+  
+  result <- solverCheck 
+  case result of
+    Unsat -> return True
+    Sat   -> return False
+    Undef -> return False
+
 -- verifyPath :: [Stmt] -> Expr -> IO ()
 -- verifyPath path postCond = verifyWLP (wlpPath path postCond)
 
-verifyPath :: [Stmt] -> Expr -> IO ()
-verifyPath path postCond = do
-  let wlpFormula = wlpPath path postCond
+verifyPath :: (Stmt -> Expr -> Expr) -> [Stmt] -> Expr -> IO ()
+verifyPath wlp path postCond = do
+  let wlpFormula = wlpPath wlp path postCond
   
   -- FOR TESTING
   putStrLn "=== 1. Raw GCL WLP Expression ==="
@@ -189,11 +199,11 @@ verifyPath path postCond = do
   -- KEEP
   verifyWLP wlpFormula
 
-main :: IO ()
-main = do
-  gcl <- parseGCLfile "examples/GCL/simpletest.gcl" -- simpletest only one that works without while and if-then-else statement from .gcl files
-  let (Right prg) = gcl
-  verifyPath [stmt prg] (LitB True)
+-- main :: IO ()
+-- main = do
+--   gcl <- parseGCLfile "examples/GCL/simpletest.gcl" -- simpletest only one that works without while and if-then-else statement from .gcl files
+--   let (Right prg) = gcl
+--   verifyPath [stmt prg] (LitB True)
   
   -- verifyPath [Test.ePath] (LitB True)  -- path is wrong, is still hardcoded, but requires a call from different file 
                                             -- and still uses a path, while it should use the result of the WLP.

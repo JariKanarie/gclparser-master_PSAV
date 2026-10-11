@@ -35,6 +35,7 @@ Library
                      , InvariantTest
                      , WLP.Simplify
                      , WLP.Z3ModelChecker
+                     , WLP.Helper
   -- other-extensions:
   build-depends:       base   >= 4.10
                      , array

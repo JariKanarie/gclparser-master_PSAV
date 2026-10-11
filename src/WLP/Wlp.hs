@@ -1,20 +1,17 @@
 module WLP.Wlp
   ( wlp
-  , wlpPath
   , feasibilityCond
   , feasibilityCondPath
   , subst
-  , freeVars
+  , wlpZ3
   ) where
 
 import GCL.GCLParser.GCLDatatype
-import GCL.ExamplesOfSemanticFunction (freeVariables)
 import Data.Set hiding (foldr, map, filter)
-import WLP.Invariant (findInvariantStmt)
-
--- | get a set of free variables in expression e.
-freeVars :: Expr -> Set String
-freeVars = fromList . freeVariables
+import WLP.Invariant (findInvariantStmt, findInvariant)
+import WLP.Helper (freeVars)
+import Z3.Monad (Z3)
+import Control.Monad.IO.Class
 
 -- | A name derived from 'base' that isn't in 'used'.
 newVar :: String -> Set String -> String
@@ -71,9 +68,16 @@ wlp s@(TryCatch {})   _ = error ("wlp: " ++ show s)
 wlp (IfThenElse g t e) q = opAnd g (wlp t q) `opOr` opAnd (OpNeg g) (wlp e q)
 wlp (While g body)    q = wlp (findInvariantStmt 5 g body) q
 
--- | Convenience for a path represented as an ordered list of statements rather than a pre-built Seq-chain.
-wlpPath :: [Stmt] -> Expr -> Expr
-wlpPath stmts q = wlp (foldr Seq Skip stmts) q
+wlpZ3 :: Stmt -> Expr -> Z3 Expr
+wlpZ3 (Seq s1 s2) q = wlpZ3 s1 =<< wlpZ3 s2 q
+wlpZ3 (Block _ s) q = wlpZ3 s q
+wlpZ3 (While g body) q = do
+  invariant <- findInvariant wlp 5 g body q (LitB True)
+  liftIO $ do print invariant
+  case invariant of
+    Just expr -> return (expr `opImplication` q)
+    Nothing -> return $ wlp (While g body) q
+wlpZ3 x q = return $ wlp x q
 
 -- | @feasibilityCond s q@ is the condition that must hold at the start of statement @s@ in order for the path to be feasible, given that @q@ holds at the end of @s@.
 feasibilityCond :: Stmt -> Expr -> Expr

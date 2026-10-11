@@ -26,9 +26,9 @@
         devShells.default = pkgs.mkShell {
           name = "pvas";
           buildInputs = [
-            hPkgs.ghc
-            hPkgs.cabal-install
-            hPkgs.haskell-language-server
+            # hPkgs.ghc
+            # hPkgs.cabal-install
+            # hPkgs.haskell-language-server
             z3pkgs.z3_4_8    # C library + binary (haskell package managed through cabal)
             pkgs.spin        
             pkgs.pkg-config
