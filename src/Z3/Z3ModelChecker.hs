@@ -68,15 +68,17 @@ exprToZ3 env expr = case expr of
     idxAst <- ensureInt env idxExpr
     mkSelect arrAst idxAst
 
+  -- Handle of #a example: (0 < i < #a)
+  SizeOf (Var name) -> case Map.lookup ("#" ++ name) env of
+    Just ast -> return ast
+    Nothing  -> error $ "var not in environment: #" ++ name -- should't happen if wlp is correctly implemented
+
   -- Array Store Mutation: RepBy a idx val -> Z3 store(a, idx, val)
   RepBy arrExpr idxExpr valExpr -> do
     arrAst <- exprToZ3 env arrExpr
     idxAst <- ensureInt env idxExpr
     valAst <- exprToZ3 env valExpr
     mkStore arrAst idxAst valAst
-
---   -- Parentheses
---   Parens e -> exprToZ3 env e // 
 
   -- If-Then-Else / Conditionals: Cond g t f -> Z3 ite(g, t, f)
   Cond g t f -> do
@@ -100,6 +102,7 @@ exprToZ3 env expr = case expr of
     v' <- toApp v
     body <- exprToZ3 (foldr (uncurry Map.insert) env extra) e
     mkExistsConst [] [v'] body
+
   other -> error $ "Type hasn't been programmed yet " ++ show other
 
   where
@@ -164,18 +167,26 @@ buildZ3Formula :: [(String, Type)] -> Expr -> Z3 AST
 buildZ3Formula tenv wlpFormula = do
   let vars = freeVars wlpFormula
 
-  envList <- mapM (\v -> do
+  intSort <- mkIntSort
+  arrSort <- mkArraySort intSort intSort
+
+  envList <- concat <$> mapM (\v -> do
       let t = case lookup (baseName v) tenv of
                 Just t' -> t'
                 Nothing -> error ("buildZ3Formula: no declared type for " ++ v ++ " -- is tenv built from the right Program?")
       sortHere <- gclSort t
       z3Var    <- mkFreshConst v sortHere
       case t of
-        AType _ -> do sz <- mkFreshIntVar (v ++ "!size"); pure [(v, z3Var), (v ++ "!size", sz)]
-        _       -> pure [(v, z3Var)]
+        AType _ -> do 
+          z3Arr  <- mkFreshConst v arrSort
+          z3Size <- mkFreshConst ("#" ++ v) intSort -- SMT variable named "#a"
+          return [ (v, z3Arr)
+                 , ("#" ++ v, z3Size)
+                 ]
+        _       -> return [(v, z3Var)]
     ) (Set.toList vars)
-
-  let env = Map.fromList (concat envList)
+  
+  let env = Map.fromList envList   
   ensureBool env wlpFormula
 
 checkSatisfiable :: [(String, Type)] -> Expr -> IO Bool

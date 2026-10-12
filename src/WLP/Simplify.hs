@@ -19,6 +19,8 @@ simplifyExpr expr = case expr of
 
     BinopExpr op a b -> simplifyBinopExpr op a b
 
+    Forall name e -> Forall name $ simplifyExpr e
+    Exists name e -> Exists name $ simplifyExpr e
     a -> a
 
 simplifyBinopExpr :: BinOp -> Expr -> Expr -> Expr
@@ -39,7 +41,14 @@ comparisons = [GreaterThan, GreaterThanEqual, LessThan, LessThanEqual, Equal]
 
 -- always puts the variable on the left if possible
 simplifyComparison :: BinOp -> Expr -> Expr -> Expr
-simplifyComparison comp a b | simplifyExpr a == simplifyExpr b = LitB $ comp `elem` [GreaterThanEqual, LessThanEqual, Equal] 
+simplifyComparison comp a b | simplifyExpr a == simplifyExpr b = LitB $ comp `elem` [GreaterThanEqual, LessThanEqual, Equal]
+simplifyComparison comp (LitI a) (LitI b) = case comp of
+    Equal -> LitB $ a == b
+    GreaterThan -> LitB $ a > b
+    GreaterThanEqual -> LitB $ a >= b
+    LessThan -> LitB $ a < b
+    LessThanEqual -> LitB $ a <= b
+    _ -> error "invalid comparison"
 simplifyComparison comp (BinopExpr Plus (Var x) e) f = BinopExpr comp (Var x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
 simplifyComparison comp (BinopExpr Plus e (Var x)) f = BinopExpr comp (Var x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
 simplifyComparison comp (BinopExpr Minus (Var x) e) f = BinopExpr comp (Var x) . simplifyExpr $ BinopExpr Plus (simplifyExpr f) (simplifyExpr e)
