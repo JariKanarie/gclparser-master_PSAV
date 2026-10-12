@@ -10,6 +10,7 @@ module WLPTest
 
 import GCL.GCLParser.GCLDatatype
 import WLP.Wlp
+import WLP.Helper (subst)
 
 -- Helper functions
 minus1, plus1 :: Expr -> Expr
@@ -55,12 +56,12 @@ main :: IO ()
 main = do
   putStrLn "=== Array-assignment example (project doc, eq. 3) ==="
   putStrLn ("path: " ++ show path1)
-  putStrLn ("wlp:  " ++ show (wlp path1 (LitB True)))
+  putStrLn ("wlp:  " ++ show (wlp 5 path1 (LitB True)))
   putStrLn ""
 
   putStrLn "=== E, loop unrolled twice (project doc, eq. 2) ==="
   putStrLn ("path: " ++ show ePath)
-  putStrLn ("wlp:  " ++ show (wlp ePath (LitB True)))
+  putStrLn ("wlp:  " ++ show (wlp 5 ePath (LitB True)))
   putStrLn ""
 
   putStrLn "=== Same path, feasibility of the branch prefixes (B0, B1) ==="

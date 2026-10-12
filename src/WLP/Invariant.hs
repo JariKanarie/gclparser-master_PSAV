@@ -5,7 +5,7 @@ module WLP.Invariant (
 
 import GCL.GCLParser.GCLDatatype
 import WLP.Simplify (simplifyExpr)
-import WLP.Z3ModelChecker (verifyExpr)
+import Z3.Z3ModelChecker (verifyExpr)
 import Z3.Monad (Z3)
 
 findInvariantStmt :: Int -> Expr -> Stmt -> Stmt

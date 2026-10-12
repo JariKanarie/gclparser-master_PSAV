@@ -2,82 +2,40 @@ module WLP.Wlp
   ( wlp
   , feasibilityCond
   , feasibilityCondPath
-  , subst
   , wlpZ3
   ) where
 
 import GCL.GCLParser.GCLDatatype
-import Data.Set hiding (foldr, map, filter)
 import WLP.Invariant (findInvariantStmt, findInvariant)
-import WLP.Helper (freeVars)
+import WLP.Helper (subst)
 import Z3.Monad (Z3)
 import Control.Monad.IO.Class
 
--- | A name derived from 'base' that isn't in 'used'.
-newVar :: String -> Set String -> String
-newVar base used = head (filter (`notMember` used) vars)
-  where vars = [ base ++ show n | n <- [(0 :: Int) ..] ]
-
--- | @subst x e f@ is @f[e\x]@: replace every free occurrence of variable @x@ in @f@ with @e@.
--- Capture-avoiding: a quantifier whose bound name would otherwise capture a variable free in @e@ gets alpha-renamed first.
-subst :: String -> Expr -> Expr -> Expr
-subst x e1 = go
-  where
-    go :: Expr -> Expr
-    go v@(Var y)
-      | y == x    = e1
-      | otherwise = v
-    go v@(LitI _)         = v
-    go v@(LitB _)         = v
-    go LitNull            = LitNull
-    go (ArrayElem a i)    = ArrayElem (go a) (go i)
-    go (OpNeg e2)         = OpNeg (go e2)
-    go (BinopExpr op a b) = BinopExpr op (go a) (go b)
-    go (SizeOf e2)        = SizeOf (go e2)
-    go (RepBy a i v)      = RepBy (go a) (go i) (go v)
-    go (Cond g t f)       = Cond (go g) (go t) (go f)
-    go (NewStore e2)      = NewStore (go e2)
-    -- [TODO] dereference is not handled yet.
-    go d@(Dereference _)  = d 
-    go (Forall y e2)    = bindVar Forall y e2
-    go (Exists y e2)    = bindVar Exists y e2
-
-    -- | @bindVar f y e2@ is a capture-avoiding version of @f y e2@, where @y@ is a bound variable and @e2@ is its scope.
-    bindVar :: (String -> Expr -> Expr) -> String -> Expr -> Expr
-    bindVar f y e2
-      | y == x = f y e2                                -- x is shadowed
-      | y `notMember` freeVars e2 = f y (go e2)        -- no capture possible
-      | otherwise =
-          let avoid = freeVars e2 `union` freeVars e2 `union` singleton x
-              y'    = newVar y avoid
-          in f y' (go (subst y (Var y') e2))           -- alpha-rename, then recurse
-
 -- | @wlp s q@: the wlp of linear path @s@ with respect to postcondition @q@ (pass @LitB True@ at the top level 
 -- the path's own asserts already carry whatever postcondition it's checking).
-wlp :: Stmt -> Expr -> Expr
-wlp Skip             q = q
-wlp (Assert e)       q = e `opAnd` q
-wlp (Assume e)       q = e `opImplication` q
-wlp (Assign x e)     q = subst x e q
-wlp (AAssign a i e)  q = subst a (RepBy (Var a) i e) q
-wlp (Seq s1 s2)      q = wlp s1 (wlp s2 q)
-wlp (Block _ s)      q = wlp s q -- Local declarations should already be uniquely named
--- [TODO] The following cases are not handled (yet) by wlp, since they are either optional (TryCatch) or not part of a linear path (IfThenElse, While, DrefAssign).
-wlp s@(DrefAssign {}) _ = error ("wlp: " ++ show s)
-wlp s@(TryCatch {})   _ = error ("wlp: " ++ show s)
-wlp (IfThenElse g t e) q = opAnd g (wlp t q) `opOr` opAnd (OpNeg g) (wlp e q)
-wlp (While g body)    q = wlp (findInvariantStmt 5 g body) q
+wlp :: Int -> Stmt -> Expr -> Expr
+wlp _ Skip             q = q
+wlp _ (Assert e)       q = e `opAnd` q
+wlp _ (Assume e)       q = e `opImplication` q
+wlp _ (Assign x e)     q = subst x e q
+wlp _ (AAssign a i e)  q = subst a (RepBy (Var a) i e) q
+wlp k (Seq s1 s2)      q = wlp k s1 (wlp k s2 q)
+wlp k (Block _ s)      q = wlp k s q -- Local declarations should already be uniquely named
+wlp _ s@(DrefAssign {}) _ = error ("wlp: " ++ show s)
+wlp _ s@(TryCatch {})   _ = error ("wlp: " ++ show s)
+wlp k (IfThenElse g t e) q = opAnd g (wlp k t q) `opOr` opAnd (OpNeg g) (wlp k e q)
+wlp k (While g body)    q = wlp k (findInvariantStmt k g body) q
 
-wlpZ3 :: Stmt -> Expr -> Z3 Expr
-wlpZ3 (Seq s1 s2) q = wlpZ3 s1 =<< wlpZ3 s2 q
-wlpZ3 (Block _ s) q = wlpZ3 s q
-wlpZ3 (While g body) q = do
-  invariant <- findInvariant wlp 5 g body q (LitB True)
+wlpZ3 :: Int -> Stmt -> Expr -> Z3 Expr
+wlpZ3 k (Seq s1 s2) q = wlpZ3 k s1 =<< wlpZ3 k s2 q
+wlpZ3 k (Block _ s) q = wlpZ3 k s q
+wlpZ3 k (While g body) q = do
+  invariant <- findInvariant (wlp k) k g body q (LitB True)
   liftIO $ do print invariant
   case invariant of
     Just expr -> return (expr `opImplication` q)
-    Nothing -> return $ wlp (While g body) q
-wlpZ3 x q = return $ wlp x q
+    Nothing -> return $ wlp k (While g body) q
+wlpZ3 k x q = return $ wlp k x q
 
 -- | @feasibilityCond s q@ is the condition that must hold at the start of statement @s@ in order for the path to be feasible, given that @q@ holds at the end of @s@.
 feasibilityCond :: Stmt -> Expr -> Expr

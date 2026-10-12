@@ -12,7 +12,7 @@ main = do
     gcl <- parseGCLfile "examples/GCL/E.gcl"
     let (Right prg) = gcl
 
-    a <- evalZ3 $ wlpZ3 (stmt prg) (LitB True)
+    a <- evalZ3 $ wlpZ3 5 (stmt prg) (LitB True)
     print a
     putStrLn "====="
     print $ simplifyExpr a
