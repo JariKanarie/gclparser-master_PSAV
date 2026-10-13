@@ -32,8 +32,7 @@ loop = do
     Nothing -> putStrLn "bye"
     Just p  -> do
       k <- askK
-      n <- askN
-      runOne p k n
+      runOne p k
       again <- askYesNo "\ncheck another file? (y/n): "
       if again then loop else putStrLn "bye"
 
@@ -89,9 +88,6 @@ ask prmt def = do
 askK :: IO Int
 askK = ask "K, max path length" 20
 
-askN :: IO Int
-askN = ask "N, max loop depth" 20
-
 askYesNo :: String -> IO Bool
 askYesNo msg = do
   s <- prompt msg
@@ -109,7 +105,7 @@ prompt msg = do
 askFreeParams :: [String] -> IO [(String, Int)]
 askFreeParams []    = pure []
 askFreeParams names = do
-  putStrLn ("\nnot declared in the program: " ++ intercalate ", " names ++ " (treated as int variables)")
+  putStrLn ("\nfree integer parameter(s): " ++ intercalate ", " names ++ " (enter a value to bind it; leave blank to keep it symbolic)")
   concat <$> mapM askOne names
   where
     askOne n = do
@@ -120,8 +116,8 @@ askFreeParams names = do
           Just v  -> pure [(n, v)]
           Nothing -> do putStrLn "  not an integer"; askOne n
 
-runOne :: FilePath -> Int -> Int -> IO ()
-runOne path k n = do
+runOne :: FilePath -> Int -> IO ()
+runOne path k = do
   parsed <- parseGCLfile path
   case parsed of
     Left err    -> putStrLn ("parse error: " ++ err)
@@ -137,7 +133,7 @@ runOne path k n = do
       putStrLn (show (length p) ++ " feasible full path(s) found")
 
       -- Stage 3 + 4, stopping at the first invalid path
-      (verdict, sizeSum) <- verifyAll tenv p 1 0 n
+      (verdict, sizeSum) <- verifyAll tenv p 1 0 k
 
       end <- getCurrentTime
       putStrLn ""
@@ -149,11 +145,10 @@ runOne path k n = do
 
 verifyAll :: [(String, Type)] -> [[Stmt]] -> Int -> Int -> Int -> IO (String, Int)
 verifyAll _ [] _ sizeSum _          = pure ("ACCEPT -- no invalid path found among those generated", sizeSum)
-verifyAll tenv (p : ps) i sizeSum n = do
+verifyAll tenv (p : ps) i sizeSum k = do
   putStrLn ("\n--- checking path " ++ show i ++ " ---")
-  print n
-  PathVerdict ok sz <- verifyPath (wlp n) tenv p (LitB True)
+  PathVerdict ok sz <- verifyPath wlp tenv p (LitB True)
   let sizeSum' = sizeSum + sz
   if ok
-    then verifyAll tenv ps (i + 1) sizeSum' n
+    then verifyAll tenv ps (i + 1) sizeSum' k
     else pure ("REJECT -- path " ++ show i ++ " is invalid (see the counterexample above)", sizeSum')
