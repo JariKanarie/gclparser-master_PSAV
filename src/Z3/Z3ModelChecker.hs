@@ -16,7 +16,9 @@ type Env = Map.Map String AST
 gclSort :: Type -> Z3 Sort
 gclSort (PType PTInt)  = mkIntSort
 gclSort (PType PTBool) = mkBoolSort
-gclSort (AType p)      = do intS <- mkIntSort; rangeS <- gclSort (PType p); mkArraySort intS rangeS
+gclSort (AType p)      = do intS <- mkIntSort
+                            rangeS <- gclSort (PType p)
+                            mkArraySort intS rangeS
 gclSort RefType        = error "Z3ModelChecker: ref type -- pointer extension (4.2) not supported"
 
 -- | Recursively translate supported GCL expressions into Z3 ASTs.

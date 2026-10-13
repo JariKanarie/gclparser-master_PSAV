@@ -16,7 +16,7 @@ exprSize :: Expr -> Int
 exprSize (Var _)             = 1
 exprSize (LitI _)            = 1
 exprSize (LitB _)            = 1
-exprSize LitNull              = 1
+exprSize LitNull             = 1
 exprSize (ArrayElem a i)     = exprSize a + exprSize i
 exprSize (OpNeg e)           = exprSize e
 exprSize (BinopExpr _ e1 e2) = exprSize e1 + exprSize e2

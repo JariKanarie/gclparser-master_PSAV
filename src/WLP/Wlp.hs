@@ -16,7 +16,7 @@ import Control.Monad.IO.Class (liftIO)
 wlp :: Stmt -> Expr -> Expr
 wlp Skip             q = q
 wlp (Assert e)       q = e `opAnd` q
-wlp (Assume e)       q = BinopExpr Implication e q
+wlp (Assume e)       q = e `opImplication` q
 wlp (Assign x e)     q = subst x e q
 wlp (AAssign a i e)  q = subst a (RepBy (Var a) i e) q
 wlp (Seq s1 s2)      q = wlp s1 (wlp s2 q)
@@ -43,7 +43,6 @@ feasibilityCond (Assume e)      q = e `opAnd` q
 feasibilityCond (Assign x e)    q = subst x e q
 feasibilityCond (AAssign a i e) q = subst a (RepBy (Var a) i e) q
 feasibilityCond (Seq s1 s2)     q = feasibilityCond s1 (feasibilityCond s2 q)
-feasibilityCond (Block _ s)     q = feasibilityCond s q
 feasibilityCond s               _ = error ("feasibilityCond: unexpected " ++ show s)
 
 -- | 'feasibilityCond' for a path given as a statement list, similar to 'wlpPath'.
