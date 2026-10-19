@@ -1,4 +1,5 @@
 module WLP.Simplify where
+    
 import GCL.GCLParser.GCLDatatype
 import Data.Bifunctor (first, second)
 import Data.List (partition)
@@ -127,8 +128,15 @@ combineRangesAnd = combineRanges $ combineRangesAndR Map.empty
 
 -- uses de morgans rule to use the simpler 'And' case
 combineRangesOr :: [Expr] -> [Expr]
-combineRangesOr = combineRanges (return . simplifyExpr . OpNeg . retree And (LitB True) . combineRangesAndR Map.empty) . map (simplifyExpr . OpNeg)
-
+combineRangesOr exprs = combinedRange : untouched
+  where
+    negated = map (simplifyExpr . OpNeg) exprs
+    isRangeComparison (BinopExpr op (Var _) (LitI _)) = op `elem` comparisons
+    isRangeComparison _ = False
+    ranges = [e | e <- negated, isRangeComparison e]
+    untouched = [original | (original, negatedExpr) <- zip exprs negated, not (isRangeComparison negatedExpr)]
+    combinedRange = simplifyExpr . OpNeg . retree And (LitB True) $ combineRangesAndR Map.empty ranges
+    
 data RangeEnd = NegInf | Nb Int | Inf
     deriving (Eq, Ord, Show)
 type Range = (RangeEnd, RangeEnd)

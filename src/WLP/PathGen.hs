@@ -26,8 +26,8 @@ generatePaths sat k prog = explore k [] 0 (stmt prog) []
       IfThenElse g s1 s2  -> branch (g, Just s1) (OpNeg g, Just s2) b acc n cont
       While g body        -> branch (g, Just (Seq body (While g body))) (OpNeg g, Nothing) b acc n cont
       Block decls s       -> let (s', n') = freshBlock n decls s in explore b acc n' s' cont
-      TryCatch {}         -> pure (mempty, [])  -- exceptions extension (4.1), not implemented
-      DrefAssign {}       -> pure (mempty, [])  -- pointer extension (4.2), not implemented
+      TryCatch {}         -> error "TryCatch not implemented yet" -- exceptions extension (4.1), not implemented
+      DrefAssign {}       -> error "DrefAssign not implemented yet" -- pointer extension (4.2), not implemented
       basic               -> step basic b acc n cont
 
     -- | A single step in the path exploration. If the budget is exhausted, we discard the path and count it as an inspected leaf. Otherwise, we either continue with the next statement in the continuation or record a full path if there are no more statements to explore.
@@ -43,17 +43,17 @@ generatePaths sat k prog = explore k [] 0 (stmt prog) []
     branch (gA, msA) (gB, msB) b acc n cont
       | b <= 0 = pure (GenStats 1 0, [])
       | otherwise = do
-          let accA = acc ++ [Assume gA]
-              accB = acc ++ [Assume gB]
-              b' = b - 1
-              onto sideAcc Nothing  = case cont of
-                []        -> pure (GenStats 1 0, [sideAcc])
-                (c:rest)  -> explore b' sideAcc n c rest
+          let accA  = acc ++ [Assume gA]
+              accB  = acc ++ [Assume gB]
+              b'    = b - 1
+              onto sideAcc Nothing = case cont of
+                []          -> pure (GenStats 1 0, [sideAcc])
+                (c:rest)    -> explore b' sideAcc n c rest
               onto sideAcc (Just s) = explore b' sideAcc n s cont
           okA <- sat (feasibilityCondPath accA)
-          (statsA, pathsA) <- if okA then onto accA msA else pure (GenStats 1 1, [])
+          (statsA, pathsA)  <- if okA then onto accA msA else pure (GenStats 1 1, [])
           okB <- sat (feasibilityCondPath accB)
-          (statsB, pathsB) <- if okB then onto accB msB else pure (GenStats 1 1, [])
+          (statsB, pathsB)  <- if okB then onto accB msB else pure (GenStats 1 1, [])
           pure (statsA <> statsB, pathsA ++ pathsB)
 
     -- | Freshen the names of the local variables in a block to ensure they are unique.

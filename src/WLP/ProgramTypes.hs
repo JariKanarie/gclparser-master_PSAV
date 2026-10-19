@@ -1,6 +1,6 @@
 module WLP.ProgramTypes
   ( typeEnv
-  , typeOf
+  -- , typeOf
   , baseName
   , freeParams
   , bindParams
@@ -29,10 +29,10 @@ declarations prog = input prog ++ output prog ++ collectDecls (stmt prog)
 baseName :: String -> String
 baseName = takeWhile (/= '$')
 
-typeOf :: [(String, Type)] -> String -> Type
-typeOf env x = case lookup (baseName x) env of
-  Just t  -> t
-  Nothing -> error ("ProgramTypes: no declared type for " ++ x ++ " -- is this typeEnv built from the right Program?")
+-- typeOf :: [(String, Type)] -> String -> Type
+-- typeOf env x = case lookup (baseName x) env of
+--   Just t  -> t
+--   Nothing -> error ("ProgramTypes: no declared type for " ++ x ++ " -- is this typeEnv built from the right Program?")
 
 freeParams :: Program -> [String]
 freeParams prog =

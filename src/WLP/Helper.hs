@@ -1,4 +1,5 @@
 module WLP.Helper where
+  
 import qualified Data.Set as Set
 import GCL.GCLParser.GCLDatatype
 import GCL.ExamplesOfSemanticFunction (freeVariables)
@@ -15,7 +16,7 @@ exprSize :: Expr -> Int
 exprSize (Var _)             = 1
 exprSize (LitI _)            = 1
 exprSize (LitB _)            = 1
-exprSize LitNull              = 1
+exprSize LitNull             = 1
 exprSize (ArrayElem a i)     = exprSize a + exprSize i
 exprSize (OpNeg e)           = exprSize e
 exprSize (BinopExpr _ e1 e2) = exprSize e1 + exprSize e2
@@ -26,7 +27,6 @@ exprSize (RepBy a i v)       = exprSize a + exprSize i + exprSize v
 exprSize (Cond g t f)        = exprSize g + exprSize t + exprSize f
 exprSize (NewStore e)        = exprSize e
 exprSize (Dereference _)     = 1
-
 
 -- | A name derived from 'base' that isn't in 'used'.
 newVar :: String -> Set.Set String -> String
@@ -53,15 +53,15 @@ subst x e1 = go
     go (Cond g t f)       = Cond (go g) (go t) (go f)
     go (NewStore e2)      = NewStore (go e2)
     go d@(Dereference _)  = d 
-    go (Forall y e2)    = bindVar Forall y e2
-    go (Exists y e2)    = bindVar Exists y e2
+    go (Forall y e2)      = bindVar Forall y e2
+    go (Exists y e2)      = bindVar Exists y e2
 
     -- | @bindVar f y e2@ is a capture-avoiding version of @f y e2@, where @y@ is a bound variable and @e2@ is its scope.
     bindVar :: (String -> Expr -> Expr) -> String -> Expr -> Expr
     bindVar f y e2
-      | y == x = f y e2                                -- x is shadowed
-      | y `Set.notMember` freeVars e2 = f y (go e2)        -- no capture possible
+      | y == x = f y e2 -- The quantifier shadows the variable being substituted.
+      | y `Set.notMember` freeVars e1 = f y (go e2) -- Substitution cannot capture y.
       | otherwise =
-          let avoid = freeVars e2 `Set.union` freeVars e2 `Set.union` Set.singleton x
-              y'    = newVar y avoid
-          in f y' (go (subst y (Var y') e2))           -- alpha-rename, then recurse
+          let avoid = freeVars e1 `Set.union` freeVars e2 `Set.union` Set.fromList [x, y]
+              y' = newVar y avoid
+          in f y' (go (subst y (Var y') e2)) -- Alpha-rename, then recurse.

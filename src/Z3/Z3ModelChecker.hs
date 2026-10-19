@@ -16,10 +16,12 @@ type Env = Map.Map String AST
 gclSort :: Type -> Z3 Sort
 gclSort (PType PTInt)  = mkIntSort
 gclSort (PType PTBool) = mkBoolSort
-gclSort (AType p)      = do intS <- mkIntSort; rangeS <- gclSort (PType p); mkArraySort intS rangeS
-gclSort RefType         = error "Z3ModelChecker: ref type -- pointer extension (4.2) not supported"
+gclSort (AType p)      = do intS <- mkIntSort
+                            rangeS <- gclSort (PType p)
+                            mkArraySort intS rangeS
+gclSort RefType        = error "Z3ModelChecker: ref type -- pointer extension (4.2) not supported"
 
--- | Recursively translates ANY GCL Expr into a Z3 AST formula. Based on the exp data type from GCLDatatypes.hs
+-- | Recursively translate supported GCL expressions into Z3 ASTs.
 exprToZ3 :: Env -> Expr -> Z3 AST
 exprToZ3 env expr = case expr of
   -- Literals
@@ -68,10 +70,10 @@ exprToZ3 env expr = case expr of
     idxAst <- ensureInt env idxExpr
     mkSelect arrAst idxAst
 
-  -- Handle of #a example: (0 < i < #a)
-  SizeOf (Var name) -> case Map.lookup ("#" ++ name) env of
-    Just ast -> return ast
-    Nothing  -> error $ "var not in environment: #" ++ name -- should't happen if wlp is correctly implemented
+  -- -- Handle of #a example: (0 < i < #a)
+  -- SizeOf (Var name) -> case Map.lookup ("#" ++ name) env of
+  --   Just ast -> return ast
+  --   Nothing  -> error $ "var not in environment: #" ++ name -- should't happen if wlp is correctly implemented
 
   -- Array Store Mutation: RepBy a idx val -> Z3 store(a, idx, val)
   RepBy arrExpr idxExpr valExpr -> do
@@ -89,7 +91,7 @@ exprToZ3 env expr = case expr of
 
   SizeOf e -> case Map.lookup (sizeKey e) env of
     Just ast -> return ast
-    Nothing  -> error $ "Z3ModelChecker: no size symbol for " ++ show e
+    Nothing  -> error $ "Z3ModelChecker: no size symbol " ++ sizeKey e ++ " for array expression " ++ show e
 
   Forall x e -> do
     (v, extra) <- freshQuantified x
@@ -121,9 +123,9 @@ exprToZ3 env expr = case expr of
       a2 <- ensureBool env e2
       op a1 a2
 
-    sizeKey (Var a)       = a ++ "!size"
+    sizeKey (Var a)       = "#" ++ a
     sizeKey (RepBy a _ _) = sizeKey a
-    sizeKey e             = error ("Z3ModelChecker: can't tell which array's size " ++ show e ++ " refers to")
+    sizeKey e             = error ("Z3ModelChecker: can't determine array size for " ++ show e)
 
     freshQuantified :: String -> Z3 (AST, [(String, AST)])
     freshQuantified x = case Map.lookup (baseName x) env of
@@ -132,7 +134,9 @@ exprToZ3 env expr = case expr of
         v <- mkFreshConst x sortHere
         kind <- getSortKind sortHere
         if kind == Z3_ARRAY_SORT
-          then do sz <- mkFreshIntVar (x ++ "!size"); pure (v, [(x, v), (x ++ "!size", sz)])
+          then do
+            sz <- mkFreshIntVar ("#" ++ x)
+            pure (v, [(x, v), ("#" ++ x, sz)])
           else pure (v, [(x, v)])
       Nothing -> do
         v <- mkFreshIntVar x
@@ -166,24 +170,20 @@ ensureBool env expr = do
 buildZ3Formula :: [(String, Type)] -> Expr -> Z3 AST
 buildZ3Formula tenv wlpFormula = do
   let vars = freeVars wlpFormula
-
   intSort <- mkIntSort
-  arrSort <- mkArraySort intSort intSort
-
   envList <- concat <$> mapM (\v -> do
-      let t = case lookup (baseName v) tenv of
-                Just t' -> t'
-                Nothing -> error ("buildZ3Formula: no declared type for " ++ v ++ " -- is tenv built from the right Program?")
-      sortHere <- gclSort t
-      z3Var    <- mkFreshConst v sortHere
-      case t of
-        AType _ -> do 
-          z3Arr  <- mkFreshConst v arrSort
-          z3Size <- mkFreshConst ("#" ++ v) intSort -- SMT variable named "#a"
-          return [ (v, z3Arr)
-                 , ("#" ++ v, z3Size)
-                 ]
-        _       -> return [(v, z3Var)]
+    let t = case lookup (baseName v) tenv of
+              Just t' -> t'
+              Nothing -> error ("buildZ3Formula: no declared type for " ++ v ++ " -- is tenv built from the right Program?")
+    sortHere <- gclSort t
+    case t of
+      AType _ -> do
+        z3Arr  <- mkFreshConst v sortHere
+        z3Size <- mkFreshConst ("#" ++ v) intSort
+        pure [(v, z3Arr), ("#" ++ v, z3Size)]
+      _ -> do
+        z3Var <- mkFreshConst v sortHere
+        pure [(v, z3Var)]
     ) (Set.toList vars)
   
   let env = Map.fromList envList   

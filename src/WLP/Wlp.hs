@@ -9,7 +9,7 @@ import GCL.GCLParser.GCLDatatype
 import WLP.Invariant (findInvariantStmt, findInvariant)
 import WLP.Helper (subst)
 import Z3.Monad (Z3)
-import Control.Monad.IO.Class
+import Control.Monad.IO.Class (liftIO)
 
 -- | @wlp s q@: the wlp of linear path @s@ with respect to postcondition @q@ (pass @LitB True@ at the top level 
 -- the path's own asserts already carry whatever postcondition it's checking).
@@ -45,7 +45,6 @@ feasibilityCond (Assume e)      q = e `opAnd` q
 feasibilityCond (Assign x e)    q = subst x e q
 feasibilityCond (AAssign a i e) q = subst a (RepBy (Var a) i e) q
 feasibilityCond (Seq s1 s2)     q = feasibilityCond s1 (feasibilityCond s2 q)
-feasibilityCond (Block _ s)     q = feasibilityCond s q
 feasibilityCond s               _ = error ("feasibilityCond: unexpected " ++ show s)
 
 -- | 'feasibilityCond' for a path given as a statement list, similar to 'wlpPath'.
