@@ -15,6 +15,8 @@ simplifyExpr expr = case expr of
     OpNeg (BinopExpr GreaterThan a b) -> simplifyExpr $ BinopExpr LessThanEqual a b
     OpNeg (BinopExpr LessThanEqual a b) -> simplifyExpr $ BinopExpr GreaterThan a b
     OpNeg (BinopExpr GreaterThanEqual a b) -> simplifyExpr $ BinopExpr LessThan a b
+    OpNeg (BinopExpr And a b) -> simplifyExpr $ BinopExpr Or (OpNeg a) (OpNeg b)
+    OpNeg (BinopExpr Or a b) -> simplifyExpr $ BinopExpr And (OpNeg a) (OpNeg b)
     OpNeg b -> OpNeg $ simplifyExpr b
 
     BinopExpr op a b -> simplifyBinopExpr op a b
@@ -25,7 +27,7 @@ simplifyExpr expr = case expr of
 
 simplifyBinopExpr :: BinOp -> Expr -> Expr -> Expr
 simplifyBinopExpr op a b
-    | op == And = retree op (LitB True) . collapseOn (LitB False) . filter (/= LitB True) . combineRangesAnd . map simplifyExpr $ combineSame op a b
+    | op == And = retree op (LitB True) . collapseOn (LitB False) . filter (/= LitB True) . map simplifyExpr $ combineSame op a b
     | op == Or = retree op (LitB False) . collapseOn (LitB True) . filter (/= LitB False) . combineRangesOr . map simplifyExpr $ combineSame op a b
     | op == Plus = retree op (LitI 0) . sumLitI . map simplifyExpr $ combineSame op a b
     | op == Minus = retreeMin . sumNegLitI . map (second simplifyExpr) $ combineWithDir op a b
@@ -53,10 +55,10 @@ simplifyComparison comp (BinopExpr Plus (Var x) e) f = BinopExpr comp (Var x) . 
 simplifyComparison comp (BinopExpr Plus e (Var x)) f = BinopExpr comp (Var x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
 simplifyComparison comp (BinopExpr Minus (Var x) e) f = BinopExpr comp (Var x) . simplifyExpr $ BinopExpr Plus (simplifyExpr f) (simplifyExpr e)
 simplifyComparison comp (BinopExpr Minus e (Var x)) f = BinopExpr (flipComp comp) (Var x) . simplifyExpr $ BinopExpr Minus (simplifyExpr e) (simplifyExpr f)
-simplifyComparison comp f (BinopExpr Plus (Var x) e) = BinopExpr (flipComp comp) (Var x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
-simplifyComparison comp f (BinopExpr Plus e (Var x)) = BinopExpr (flipComp comp) (Var x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
-simplifyComparison comp f (BinopExpr Minus (Var x) e) = BinopExpr (flipComp comp) (Var x) . simplifyExpr $ BinopExpr Plus (simplifyExpr f) (simplifyExpr e)
-simplifyComparison comp f (BinopExpr Minus e (Var x)) = BinopExpr comp (Var x) . simplifyExpr $ BinopExpr Minus (simplifyExpr e) (simplifyExpr f)
+simplifyComparison comp f (BinopExpr Plus (Var x) e) = BinopExpr comp (Var x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
+simplifyComparison comp f (BinopExpr Plus e (Var x)) = BinopExpr comp (Var x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
+simplifyComparison comp f (BinopExpr Minus (Var x) e) = BinopExpr comp (Var x) . simplifyExpr $ BinopExpr Plus (simplifyExpr f) (simplifyExpr e)
+simplifyComparison comp f (BinopExpr Minus e (Var x)) = BinopExpr (flipComp comp) (Var x) . simplifyExpr $ BinopExpr Minus (simplifyExpr e) (simplifyExpr f)
 simplifyComparison comp a (Var x) = BinopExpr (flipComp comp) (Var x) (simplifyExpr a)
 simplifyComparison comp a b = BinopExpr comp (simplifyExpr a) (simplifyExpr b)
 

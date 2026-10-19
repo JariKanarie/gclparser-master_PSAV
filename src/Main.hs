@@ -14,6 +14,8 @@ import WLP.ProgramTypes (typeEnv, freeParams, bindParams)
 import Z3.Z3ModelChecker (checkSatisfiable, verifyPath, PathVerdict(..))
 import System.FilePath ((</>))
 import WLP.Wlp (wlp)
+import WLP.Invariant (removeLoops)
+import Z3.Monad (evalZ3)
 
 examplesDirs :: [FilePath]
 examplesDirs =
@@ -131,9 +133,13 @@ runOne path k n = do
           tenv = typeEnv prog
       start <- getCurrentTime
 
+      (stmts, _, _) <- evalZ3 $ removeLoops tenv wlp k (stmt prog)
+      putStrLn "\n=== Stage 1: removing loops ==="
+      print stmts
+
       -- Stage 2
       putStrLn ("\n=== Stage 2: generating paths up to K=" ++ show k ++ " ===")
-      (stats, p) <- generatePaths (checkSatisfiable tenv) k prog
+      (stats, p) <- generatePaths (checkSatisfiable tenv) k (prog { stmt = stmts })
       putStrLn (show (length p) ++ " feasible full path(s) found")
 
       -- Stage 3 + 4, stopping at the first invalid path

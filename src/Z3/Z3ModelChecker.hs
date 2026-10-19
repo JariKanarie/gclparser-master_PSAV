@@ -236,9 +236,9 @@ verifyWLP tenv wlpExpr = evalZ3 $ do
   -- KEEP
   checkFormulaSatisfiability wlpAst
 
-verifyExpr :: Expr -> Z3 Bool 
-verifyExpr expr = do
-  wlpAst <- buildZ3Formula [] expr
+verifyExpr :: [(String, Type)] -> Expr -> Z3 Bool 
+verifyExpr tenv expr = do
+  wlpAst <- buildZ3Formula tenv expr
   notWlp <- mkNot wlpAst
   assert notWlp
   

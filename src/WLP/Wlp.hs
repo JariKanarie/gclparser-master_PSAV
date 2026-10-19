@@ -26,16 +26,16 @@ wlp _ s@(TryCatch {})   _ = error ("wlp: " ++ show s)
 wlp k (IfThenElse g t e) q = opAnd g (wlp k t q) `opOr` opAnd (OpNeg g) (wlp k e q)
 wlp k (While g body)    q = wlp k (findInvariantStmt k g body) q
 
-wlpZ3 :: Int -> Stmt -> Expr -> Z3 Expr
-wlpZ3 k (Seq s1 s2) q = wlpZ3 k s1 =<< wlpZ3 k s2 q
-wlpZ3 k (Block _ s) q = wlpZ3 k s q
-wlpZ3 k (While g body) q = do
-  invariant <- findInvariant (wlp k) k g body q (LitB True)
+wlpZ3 :: [(String, Type)] -> Int -> Stmt -> Expr -> Z3 Expr
+wlpZ3 tenv k (Seq s1 s2) q = wlpZ3 tenv k s1 =<< wlpZ3 tenv k s2 q
+wlpZ3 tenv k (Block _ s) q = wlpZ3 tenv k s q
+wlpZ3 tenv k (While g body) q = do
+  invariant <- findInvariant tenv (wlp k) k g body q (LitB True)
   liftIO $ do print invariant
   case invariant of
     Just expr -> return (expr `opImplication` q)
     Nothing -> return $ wlp k (While g body) q
-wlpZ3 k x q = return $ wlp k x q
+wlpZ3 _ k x q = return $ wlp k x q
 
 -- | @feasibilityCond s q@ is the condition that must hold at the start of statement @s@ in order for the path to be feasible, given that @q@ holds at the end of @s@.
 feasibilityCond :: Stmt -> Expr -> Expr
