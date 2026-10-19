@@ -114,7 +114,8 @@ askFreeParams names = do
         "" -> pure []
         _  -> case readMaybe s of
           Just v  -> pure [(n, v)]
-          Nothing -> do putStrLn "  not an integer"; askOne n
+          Nothing -> do putStrLn "  not an integer"
+                        askOne n
 
 runOne :: FilePath -> Int -> IO ()
 runOne path k = do
@@ -127,12 +128,11 @@ runOne path k = do
           tenv = typeEnv prog
       start <- getCurrentTime
 
-      -- Stage 2
-      putStrLn ("\n=== Stage 2: generating paths up to K=" ++ show k ++ " ===")
+      putStrLn ("\n=== Stage 1: generating paths up to K=" ++ show k ++ " ===")
       (stats, p) <- generatePaths (checkSatisfiable tenv) k prog
       putStrLn (show (length p) ++ " feasible full path(s) found")
 
-      -- Stage 3 + 4, stopping at the first invalid path
+      -- Stage 2 + 3, stopping at the first invalid path
       (verdict, sizeSum) <- verifyAll tenv p 1 0 k
 
       end <- getCurrentTime

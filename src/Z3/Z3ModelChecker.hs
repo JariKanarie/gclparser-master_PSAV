@@ -185,7 +185,7 @@ buildZ3Formula tenv wlpFormula = do
         z3Var <- mkFreshConst v sortHere
         pure [(v, z3Var)]
     ) (Set.toList vars)
-  
+
   let env = Map.fromList envList   
   ensureBool env wlpFormula
 
@@ -226,11 +226,11 @@ data PathVerdict = PathVerdict { verdictValid :: Bool, verdictSize :: Int } deri
 verifyWLP :: [(String, Type)] -> Expr -> IO Bool
 verifyWLP tenv wlpExpr = evalZ3 $ do
   wlpAst <- buildZ3Formula tenv wlpExpr
-  
+
   -- FOR TESTING
   astStr <- astToString wlpAst
   liftIO $ do
-    putStrLn "\n=== 3. Translated Z3 SMT-LIB Formula ==="
+    putStrLn "\n=== Translated Z3 SMT-LIB Formula ==="
     putStrLn astStr
 
   -- KEEP
@@ -248,13 +248,14 @@ verifyExpr expr = do
     Sat   -> return False
     Undef -> return False
 
--- | Stage 3 + Stage 4 together for one path: compute its WLP (Stage 3, WLP.Wlp.wlpPath) then verify it (Stage 4, above).
+-- | Stage 2 + Stage 3 together for one path: compute its WLP (Stage 2, WLP.Wlp.wlpPath) then verify it (Stage 3, above).
 verifyPath :: (Stmt -> Expr -> Expr) -> [(String, Type)] -> [Stmt] -> Expr -> IO PathVerdict
 verifyPath wlp tenv path postCond = do
+  -- let wlpFormula = wlpPath wlp path postCond
   let wlpFormula = simplifyExpr $ wlpPath wlp path postCond
   
   -- FOR TESTING
-  putStrLn "=== 1. Raw GCL WLP Expression ==="
+  putStrLn "=== 3. Raw GCL WLP Expression ==="
   print wlpFormula
   putStrLn "=================================\n"
 
