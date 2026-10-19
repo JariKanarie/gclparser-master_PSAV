@@ -10,25 +10,29 @@ simplifyExpr :: Expr -> Expr
 simplifyExpr expr = case expr of
     (ArrayElem a b) -> ArrayElem (simplifyExpr a) (simplifyExpr b)
 
-    OpNeg (LitB b) -> simplifyExpr $ LitB (not b)
+    OpNeg (LitB b) -> LitB (not b)
     OpNeg (OpNeg b) -> simplifyExpr b
     OpNeg (BinopExpr LessThan a b) -> simplifyExpr $ BinopExpr GreaterThanEqual a b
     OpNeg (BinopExpr GreaterThan a b) -> simplifyExpr $ BinopExpr LessThanEqual a b
     OpNeg (BinopExpr LessThanEqual a b) -> simplifyExpr $ BinopExpr GreaterThan a b
     OpNeg (BinopExpr GreaterThanEqual a b) -> simplifyExpr $ BinopExpr LessThan a b
-    OpNeg (BinopExpr And a b) -> simplifyExpr $ BinopExpr Or (OpNeg a) (OpNeg b)
-    OpNeg (BinopExpr Or a b) -> simplifyExpr $ BinopExpr And (OpNeg a) (OpNeg b)
+    -- OpNeg (BinopExpr And a b) -> simplifyExpr $ BinopExpr Or (OpNeg a) (OpNeg b)
+    -- OpNeg (BinopExpr Or a b) -> simplifyExpr $ BinopExpr And (OpNeg a) (OpNeg b)
+    OpNeg (Forall name a) -> simplifyExpr $ Exists name (OpNeg a)
+    OpNeg (Exists name a) -> simplifyExpr $ Forall name (OpNeg a)
     OpNeg b -> OpNeg $ simplifyExpr b
 
     BinopExpr op a b -> simplifyBinopExpr op a b
 
+    Forall _ b@(LitB _) -> b
     Forall name e -> Forall name $ simplifyExpr e
+    Exists _ b@(LitB _) -> b
     Exists name e -> Exists name $ simplifyExpr e
     a -> a
 
 simplifyBinopExpr :: BinOp -> Expr -> Expr -> Expr
 simplifyBinopExpr op a b
-    | op == And = retree op (LitB True) . collapseOn (LitB False) . filter (/= LitB True) . map simplifyExpr $ combineSame op a b
+    | op == And = retree op (LitB True) . collapseOn (LitB False) . filter (/= LitB True) . combineRangesAnd . map simplifyExpr $ combineSame op a b
     | op == Or = retree op (LitB False) . collapseOn (LitB True) . filter (/= LitB False) . combineRangesOr . map simplifyExpr $ combineSame op a b
     | op == Plus = retree op (LitI 0) . sumLitI . map simplifyExpr $ combineSame op a b
     | op == Minus = retreeMin . sumNegLitI . map (second simplifyExpr) $ combineWithDir op a b

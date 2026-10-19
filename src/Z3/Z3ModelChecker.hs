@@ -224,6 +224,7 @@ data PathVerdict = PathVerdict { verdictValid :: Bool, verdictSize :: Int } deri
 
 -- | Verifies the WLP of a given path against its postcondition using Z3. Returns True if the WLP is valid (unsatisfiable negation), False otherwise.
 verifyWLP :: [(String, Type)] -> Expr -> IO Bool
+verifyWLP _ (LitB b) = return b
 verifyWLP tenv wlpExpr = evalZ3 $ do
   wlpAst <- buildZ3Formula tenv wlpExpr
   
@@ -236,7 +237,8 @@ verifyWLP tenv wlpExpr = evalZ3 $ do
   -- KEEP
   checkFormulaSatisfiability wlpAst
 
-verifyExpr :: [(String, Type)] -> Expr -> Z3 Bool 
+verifyExpr :: [(String, Type)] -> Expr -> Z3 Bool
+verifyExpr _ (LitB b) = return b
 verifyExpr tenv expr = do
   wlpAst <- buildZ3Formula tenv expr
   notWlp <- mkNot wlpAst

@@ -25,7 +25,7 @@ findInvariant tenv wlp k g body q expr = do
 
 removeLoops :: [(String, Type)] -> (Int -> Stmt -> Expr -> Expr) -> Int -> Stmt -> Z3 (Stmt, Expr, Bool)
 removeLoops tenv wlp k p = removeLoopsR tenv wlp k p (LitB True) True
- 
+
 removeLoopsR :: [(String, Type)] -> (Int -> Stmt -> Expr -> Expr) -> Int -> Stmt -> Expr -> Bool -> Z3 (Stmt, Expr, Bool)
 removeLoopsR tenv wlp k (Seq (Assert as) (While g body)) q True = removeLoopInvariant tenv wlp k g body q as
 removeLoopsR tenv wlp k (Seq (Assert as) a@(Seq (While g body) b)) q c = do

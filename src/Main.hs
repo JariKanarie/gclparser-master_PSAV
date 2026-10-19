@@ -129,8 +129,8 @@ runOne path k = do
           tenv = typeEnv prog
       start <- getCurrentTime
 
-      (stmts, _, _) <- evalZ3 $ removeLoops tenv wlp k (stmt prog)
       putStrLn "\n=== Stage 1: removing loops ==="
+      (stmts, _, _) <- evalZ3 $ removeLoops tenv wlp k (stmt prog)
       print stmts
 
       -- Stage 2
