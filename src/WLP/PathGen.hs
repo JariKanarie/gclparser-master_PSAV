@@ -16,7 +16,7 @@ instance Semigroup GenStats where
 instance Monoid GenStats where
   mempty = GenStats 0 0
 
--- | Every full path of a program up to depth k, and the pruning stats collected along the way.
+-- | Every full path of a program up to depth k + pruning stats.
 generatePaths :: (Expr -> IO Bool) -> Int -> Program -> IO (GenStats, [[Stmt]])
 generatePaths sat k prog = explore k [] 0 (stmt prog) []
   where
@@ -24,13 +24,13 @@ generatePaths sat k prog = explore k [] 0 (stmt prog) []
     explore b acc n cur cont = case cur of
       Seq s1 s2           -> explore b acc n s1 (s2 : cont)
       IfThenElse g s1 s2  -> branch (g, Just s1) (OpNeg g, Just s2) b acc n cont
-      While g body        -> branch (g, Just (Seq body (While g body))) (OpNeg g, Nothing) b acc n cont
+      While g body        -> branch (OpNeg g, Nothing) (g, Just (Seq body (While g body)))  b acc n cont
       Block decls s       -> let (s', n') = freshBlock n decls s in explore b acc n' s' cont
       TryCatch {}         -> error "TryCatch not implemented yet" -- exceptions extension (4.1), not implemented
       DrefAssign {}       -> error "DrefAssign not implemented yet" -- pointer extension (4.2), not implemented
       basic               -> step basic b acc n cont
 
-    -- | A single step in the path exploration. If the budget is exhausted, we discard the path and count it as an inspected leaf. Otherwise, we either continue with the next statement in the continuation or record a full path if there are no more statements to explore.
+    -- | A single step in the path exploration. If the budget is exhausted, we discard the path and count it as an inspected leaf.
     step :: Stmt -> Int -> [Stmt] -> Int -> [Stmt] -> IO (GenStats, [[Stmt]])
     step s b acc n cont
       | b <= 0      = pure (GenStats 1 0, [])   -- would be the (K+1)th statement: not a full path, discard
@@ -77,7 +77,7 @@ generatePaths sat k prog = explore k [] 0 (stmt prog) []
         go (IfThenElse g s1 s2) = IfThenElse (e g) (go s1) (go s2)
         go (While g s)          = While (e g) (go s)
         go (Block ds s)
-          | old `elem` [ v | VarDeclaration v _ <- ds ] = Block ds s
+          | old `elem` [v | VarDeclaration v _ <- ds] = Block ds s
           | otherwise                                   = Block ds (go s)
         go (TryCatch x s1 s2)
           | x == old            = TryCatch x s1 s2
