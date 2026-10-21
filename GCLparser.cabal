@@ -60,3 +60,40 @@ Library
   default-extensions:  TupleSections
                      , NamedFieldPuns
                      , ScopedTypeVariables
+
+executable Main
+  main-is: Main.hs
+  hs-source-dirs: src , examples/GCL/examplesHaskellZ3 , examples/WLP , examples/WLP/WLPTest
+  build-tools:         happy, alex
+  default-language:    Haskell2010
+  default-extensions:  TupleSections
+                     , NamedFieldPuns
+                     , ScopedTypeVariables
+  build-depends:       base   >= 4.10
+                     , array
+                     , containers
+                     , optparse-applicative
+                     , pretty
+                     , directory
+                     , z3
+                     , process
+                     , time
+                     , filepath
+  other-modules: GCL.GCLParser.Parser
+                     , GCL.GCLParser.GCLDatatype
+                     , GCL.GCLParser.PrettyPrint
+                     , GCL.GCLInterpreter
+                     , GCL.MuGCL
+                     , GCL.GCLUtils
+                     , GCL.GCLLexer.Token
+                     , GCL.GCLLexer.Lexer
+                     , GCL.ExamplesOfSemanticFunction
+
+                     , Z3.Z3ModelChecker
+                     , Z3ProverExample
+
+                     , WLP.Wlp
+                     , WLP.Simplify
+                     , WLP.Helper
+                     , WLP.ProgramTypes
+                     , WLP.PathGen
