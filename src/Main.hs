@@ -14,7 +14,7 @@ import WLP.ProgramTypes (typeEnv, freeParams, bindParams)
 import Z3.Z3ModelChecker (checkSatisfiable, verifyPath, PathVerdict(..))
 import System.FilePath ((</>))
 import WLP.Wlp (wlp)
-import WLP.Invariant (removeLoops)
+import WLP.Invariant (removeLoops, removeLoopsTimeout)
 import Z3.Monad (evalZ3)
 
 examplesDirs :: [FilePath]
@@ -131,7 +131,8 @@ runOne path k = do
       start <- getCurrentTime
 
       putStrLn "\n=== Stage 1: removing loops ==="
-      (stmts, _, _) <- evalZ3 $ removeLoops tenv wlp k (stmt prog)
+      let secondMicros = 1 * 1000 * 1000
+      (stmts, _, _) <- removeLoopsTimeout tenv wlp k (stmt prog) secondMicros
       print stmts
 
       -- Stage 2
