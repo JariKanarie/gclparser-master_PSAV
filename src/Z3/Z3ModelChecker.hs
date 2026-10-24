@@ -4,6 +4,7 @@ import GCL.GCLParser.GCLDatatype
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Z3.Monad
+import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import WLP.Helper (wlpPath, freeVars, exprSize)
 import WLP.ProgramTypes (baseName)
@@ -223,16 +224,17 @@ checkFormulaSatisfiability wlpAst = do
 data PathVerdict = PathVerdict { verdictValid :: Bool, verdictSize :: Int } deriving Show
 
 -- | Verifies the WLP of a given path against its postcondition using Z3. Returns True if the WLP is valid (unsatisfiable negation), False otherwise.
-verifyWLP :: [(String, Type)] -> Expr -> IO Bool
-verifyWLP _ (LitB b) = return b
-verifyWLP tenv wlpExpr = evalZ3 $ do
+verifyWLP :: [(String, Type)] -> Expr -> Bool -> IO Bool
+verifyWLP _ (LitB b) _   = return b
+verifyWLP tenv wlpExpr l = evalZ3 $ do
   wlpAst <- buildZ3Formula tenv wlpExpr
 
   -- FOR TESTING
-  astStr <- astToString wlpAst
-  liftIO $ do
-    putStrLn "\n=== Translated Z3 SMT-LIB Formula ==="
-    putStrLn astStr
+  when l $ do
+    astStr <- astToString wlpAst
+    liftIO $ do
+      putStrLn "\n=== Translated Z3 SMT-LIB Formula ==="
+      putStrLn astStr
 
   -- KEEP
   checkFormulaSatisfiability wlpAst
@@ -251,16 +253,17 @@ verifyExpr tenv expr = do
     Undef -> return False
 
 -- | Stage 2 + Stage 3 together for one path: compute its WLP (Stage 2, WLP.Wlp.wlpPath) then verify it (Stage 3, above).
-verifyPath :: (Stmt -> Expr -> Expr) -> [(String, Type)] -> [Stmt] -> Expr -> IO PathVerdict
-verifyPath wlp tenv path postCond = do
+verifyPath :: (Stmt -> Expr -> Expr) -> [(String, Type)] -> [Stmt] -> Expr -> Bool -> IO PathVerdict
+verifyPath wlp tenv path postCond logging = do
   -- let wlpFormula = wlpPath wlp path postCond
   let wlpFormula = simplifyExpr $ wlpPath wlp path postCond
   
   -- FOR TESTING
-  putStrLn "=== 3. Raw GCL WLP Expression ==="
-  print wlpFormula
-  putStrLn "=================================\n"
+  when logging $ do
+    putStrLn "=== 3. Raw GCL WLP Expression ==="
+    print wlpFormula
+    putStrLn "=================================\n"
 
   -- KEEP
-  valid <- verifyWLP tenv wlpFormula
+  valid <- verifyWLP tenv wlpFormula logging
   pure (PathVerdict valid (exprSize wlpFormula))

@@ -77,7 +77,7 @@ pickFile files = do
       _ -> do
         putStrLn "not a valid choice"
         pickFile files
-
+        
 ask :: String -> Int -> IO Int
 ask prmt def = do
   s <- prompt $ prmt ++ " [default: " ++ show def ++ "]: "
@@ -86,6 +86,9 @@ ask prmt def = do
     _  -> case readMaybe s of
       Just k  -> pure k
       Nothing -> do putStrLn "not a number"; ask prmt def
+
+askLogging :: IO Bool
+askLogging = askYesNo "enable debug logging? (y/n): "
 
 askK :: IO Int
 askK = ask "K, max path length" 20
@@ -126,6 +129,7 @@ runOne path k = do
     Left err    -> putStrLn ("parse error: " ++ err)
     Right prog0 -> do
       binds <- askFreeParams (freeParams prog0)
+      logging <- askLogging
       let prog = bindParams binds prog0
           tenv = typeEnv prog
       start <- getCurrentTime
@@ -141,7 +145,7 @@ runOne path k = do
       putStrLn (show (length p) ++ " feasible full path(s) found")
 
       -- Stage 2 + 3, stopping at the first invalid path
-      (verdict, sizeSum) <- verifyAll tenv p 1 0 k
+      (verdict, sizeSum) <- verifyAll tenv p 1 0 k logging
 
       end <- getCurrentTime
       putStrLn ""
@@ -151,12 +155,12 @@ runOne path k = do
       putStrLn ("  (2) time:            " ++ show (diffUTCTime end start))
       putStrLn ("  (3) total wlp size:  " ++ show sizeSum)
 
-verifyAll :: [(String, Type)] -> [[Stmt]] -> Int -> Int -> Int -> IO (String, Int)
-verifyAll _ [] _ sizeSum _          = pure ("ACCEPT -- no invalid path found among those generated", sizeSum)
-verifyAll tenv (p : ps) i sizeSum k = do
+verifyAll :: [(String, Type)] -> [[Stmt]] -> Int -> Int -> Int -> Bool -> IO (String, Int)
+verifyAll _ [] _ sizeSum _ _          = pure ("ACCEPT -- no invalid path found among those generated", sizeSum)
+verifyAll tenv (p : ps) i sizeSum k l = do
   putStrLn ("\n--- checking path " ++ show i ++ " ---")
-  PathVerdict ok sz <- verifyPath (wlp k) tenv p (LitB True)
+  PathVerdict ok sz <- verifyPath (wlp k) tenv p (LitB True) l
   let sizeSum' = sizeSum + sz
   if ok
-    then verifyAll tenv ps (i + 1) sizeSum' k
+    then verifyAll tenv ps (i + 1) sizeSum' k l
     else pure ("REJECT -- path " ++ show i ++ " is invalid (see the counterexample above)", sizeSum')
