@@ -8,13 +8,13 @@ import WLP.Wlp (feasibilityCondPath)
 import WLP.Helper (subst)
 
 -- | A data type to keep track of the number of paths inspected and pruned during path generation.
-data GenStats = GenStats { pathsInspected :: !Int, pathsPruned :: !Int } deriving Show
+data GenStats = GenStats { pathsInspected :: !Int, pathsPruned :: !Int, complete :: !Bool } deriving Show
 
 instance Semigroup GenStats where
-  GenStats a b <> GenStats a' b' = GenStats (a + a') (b + b')
+  GenStats a b c <> GenStats a' b' c' = GenStats (a + a') (b + b') (c && c')
 
 instance Monoid GenStats where
-  mempty = GenStats 0 0
+  mempty = GenStats 0 0 True
 
 -- | Every full path of a program up to depth k + pruning stats.
 generatePaths :: (Expr -> IO Bool) -> Int -> Program -> IO (GenStats, [[Stmt]])
@@ -33,27 +33,27 @@ generatePaths sat k prog = explore k [] 0 (stmt prog) []
     -- | A single step in the path exploration. If the budget is exhausted, we discard the path and count it as an inspected leaf.
     step :: Stmt -> Int -> [Stmt] -> Int -> [Stmt] -> IO (GenStats, [[Stmt]])
     step s b acc n cont
-      | b <= 0      = pure (GenStats 1 0, [])   -- would be the (K+1)th statement: not a full path, discard
+      | b <= 0      = pure (GenStats 1 0 False, [])   -- would be the (K+1)th statement: not a full path, discard
       | otherwise   = case cont of
-        []          -> pure (GenStats 1 0, [acc ++ [s]])
+        []          -> pure (GenStats 1 0 True, [acc ++ [s]])
         (c : rest)  -> explore (b - 1) (acc ++ [s]) n c rest
 
     -- | A branch's own condition costs one unit of b too (it becomes an Assume in the path, and the assignment counts those explicitly).
     branch :: (Expr, Maybe Stmt) -> (Expr, Maybe Stmt) -> Int -> [Stmt] -> Int -> [Stmt] -> IO (GenStats, [[Stmt]])
     branch (gA, msA) (gB, msB) b acc n cont
-      | b <= 0 = pure (GenStats 1 0, [])
+      | b <= 0 = pure (GenStats 1 0 False, [])
       | otherwise = do
           let accA  = acc ++ [Assume gA]
               accB  = acc ++ [Assume gB]
               b'    = b - 1
               onto sideAcc Nothing = case cont of
-                []          -> pure (GenStats 1 0, [sideAcc])
+                []          -> pure (GenStats 1 0 True, [sideAcc])
                 (c:rest)    -> explore b' sideAcc n c rest
               onto sideAcc (Just s) = explore b' sideAcc n s cont
           okA <- sat (feasibilityCondPath accA)
-          (statsA, pathsA)  <- if okA then onto accA msA else pure (GenStats 1 1, [])
+          (statsA, pathsA)  <- if okA then onto accA msA else pure (GenStats 1 1 True, [])
           okB <- sat (feasibilityCondPath accB)
-          (statsB, pathsB)  <- if okB then onto accB msB else pure (GenStats 1 1, [])
+          (statsB, pathsB)  <- if okB then onto accB msB else pure (GenStats 1 1 True, [])
           pure (statsA <> statsB, pathsA ++ pathsB)
 
     -- | Freshen the names of the local variables in a block to ensure they are unique.

@@ -11,7 +11,7 @@ import WLP.Invariant (removeLoopsTimeout)
 import WLP.PathGen (generatePaths, GenStats(..))
 import WLP.ProgramTypes (typeEnv, bindParams)
 import WLP.Wlp (wlp)
-import Z3.Z3ModelChecker (checkSatisfiable, verifyPathStatus, VerificationStatus(..), PathVerdict(..))
+import Z3.Z3ModelChecker (checkSatisfiable, verifyPathStatus, VerificationStatus(..))
 
 runBenchmarkArgs :: [String] -> IO ()
 runBenchmarkArgs args = case parseOptions args of
@@ -56,7 +56,7 @@ runBenchmark file k n mode invariantTimeoutMs = do
         Just reason -> do
           end <- getCurrentTime
           let seconds = realToFrac (diffUTCTime end start) :: Double
-          emitBenchmarkResult file k n mode "UNSUPPORTED" seconds 0 0 0 0 0
+          emitBenchmarkResult file k n mode "UNSUPPORTED" seconds 0 0 0 0 0 False
             ("unsupported: " ++ reason)
         Nothing -> do
           let usePruning = mode `elem` ["prune", "prune+simplify", "prune+invariants", "all"]
@@ -66,7 +66,7 @@ runBenchmark file k n mode invariantTimeoutMs = do
             if useInvariants
               then do
                 (abstractedStmt, _, complete) <- removeLoopsTimeout tenv wlp k (stmt prog) (invariantTimeoutMs * 1000)
-                pure ( if complete then abstractedStmt else stmt prog, if complete then "complete" else "fallback-original" )
+                pure ( abstractedStmt, if complete then "complete" else "partial" )
               else pure (stmt prog, "disabled")
           let satCheck formula = if usePruning then checkSatisfiable tenv formula else pure True
           (stats, paths) <- generatePaths satCheck k (prog { stmt = stmts })
@@ -75,14 +75,14 @@ runBenchmark file k n mode invariantTimeoutMs = do
           end <- getCurrentTime
           let seconds = realToFrac (diffUTCTime end start) :: Double
           emitBenchmarkResult file k n mode verdict seconds
-            (pathsInspected stats) (pathsPruned stats) (length paths) pathsVerified sizeSum invariantStatus
+            (pathsInspected stats) (pathsPruned stats) (length paths) pathsVerified sizeSum (complete stats) invariantStatus
           case failedPath of
             Just badPath -> putStrLn ("BENCHMARK_FAIL_PATH\t" ++ cleanField (show badPath))
             Nothing -> pure ()
 
-emitBenchmarkResult :: FilePath -> Int -> Int -> String -> String -> Double -> Int -> Int -> Int -> Int -> Int -> String -> IO ()
-emitBenchmarkResult file k n mode verdict seconds inspected pruned fullPaths verified wlpSize invariantStatus = do
-  let fields = [ takeBaseName file, file, show n, show k, mode, verdict, show seconds, show inspected, show pruned, show fullPaths, show verified, show wlpSize, invariantStatus]
+emitBenchmarkResult :: FilePath -> Int -> Int -> String -> String -> Double -> Int -> Int -> Int -> Int -> Int -> Bool -> String -> IO ()
+emitBenchmarkResult file k n mode verdict seconds inspected pruned fullPaths verified wlpSize completeness invariantStatus  = do
+  let fields = [ takeBaseName file, file, show n, show k, mode, verdict, show seconds, show inspected, show pruned, show fullPaths, show verified, show wlpSize, show completeness, invariantStatus ]
   putStrLn ("BENCHMARK_RESULT\t" ++ intercalate "\t" (map cleanField fields))
 
 unsupportedFeature :: Stmt -> Maybe String
