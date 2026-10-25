@@ -150,6 +150,7 @@ runOne path k = do
       putStrLn ("  (1) paths inspected: " ++ show (pathsInspected stats) ++ "   of which unfeasible (pruned): " ++ show (pathsPruned stats))
       putStrLn ("  (2) time:            " ++ show (diffUTCTime end start))
       putStrLn ("  (3) total wlp size:  " ++ show sizeSum)
+      putStrLn ("  (4) complete:        " ++ show (complete stats))
 
 verifyAll :: [(String, Type)] -> [[Stmt]] -> Int -> Int -> Int -> IO (String, Int)
 verifyAll _ [] _ sizeSum _          = pure ("ACCEPT -- no invalid path found among those generated", sizeSum)
