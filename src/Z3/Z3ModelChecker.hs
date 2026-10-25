@@ -246,6 +246,7 @@ verifyExpr tenv expr = do
   notWlp <- mkNot wlpAst
   assert notWlp
   
+
   result <- solverCheck 
   case result of
     Unsat -> return True
@@ -256,7 +257,7 @@ verifyExpr tenv expr = do
 verifyPath :: (Stmt -> Expr -> Expr) -> [(String, Type)] -> [Stmt] -> Expr -> Bool -> IO PathVerdict
 verifyPath wlp tenv path postCond logging = do
   -- let wlpFormula = wlpPath wlp path postCond
-  let wlpFormula = simplifyExpr $ wlpPath wlp path postCond
+  let wlpFormula = simplifyExpr $ wlpPath wlp path postCond 
   
   -- FOR TESTING
   when logging $ do
@@ -267,3 +268,26 @@ verifyPath wlp tenv path postCond logging = do
   -- KEEP
   valid <- verifyWLP tenv wlpFormula logging
   pure (PathVerdict valid (exprSize wlpFormula))
+
+
+-- | A three-way result for automated benchmark runs. Unlike the legacy Bool
+-- API, this does not confuse a solver's Undef result with a counterexample.
+data VerificationStatus = WLPVerified | WLPCounterexample | WLPUnknown deriving (Eq, Show)
+
+-- | Verify one path without debug output. The Boolean controls whether the
+-- front-end expression simplifier is used. WLPUnknown must not be counted as
+-- a killed mutant or as a confirmed REJECT.
+verifyPathStatus :: Bool -> (Stmt -> Expr -> Expr) -> [(String, Type)] -> [Stmt] -> Expr -> IO (VerificationStatus, Int)
+verifyPathStatus useSimplifier wlp tenv path postCond = do
+  let rawFormula = wlpPath wlp path postCond
+      formula = if useSimplifier then simplifyExpr rawFormula else rawFormula
+  status <- evalZ3 $ do
+    formulaAst <- buildZ3Formula tenv formula
+    negated <- mkNot formulaAst
+    assert negated
+    result <- solverCheck
+    pure $ case result of
+      Unsat -> WLPVerified
+      Sat   -> WLPCounterexample
+      Undef -> WLPUnknown
+  pure (status, exprSize formula)

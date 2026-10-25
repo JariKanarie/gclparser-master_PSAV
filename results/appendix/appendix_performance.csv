@@ -1,0 +1,13 @@
+experiment,benchmark,case_kind,file,N,K,heuristics,expected_verdict,verdict,kill,elapsed_seconds,wall_seconds,paths_inspected,paths_pruned,full_paths_generated,paths_verified,total_wlp_size,invariant_status,run_status,error
+performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,10,none,ACCEPT,ACCEPT,false,2.75004e-2,0.055,7,0,3,3,81,disabled,completed,
+performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,10,prune+invariants,ACCEPT,ACCEPT,false,0.3155004,0.345,7,3,0,0,0,fallback-original,completed,
+performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,10,all,ACCEPT,ACCEPT,false,0.3174998,0.348,7,3,0,0,0,fallback-original,completed,
+performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,20,none,ACCEPT,ACCEPT,false,0.1105001,0.140,47,0,15,15,677,disabled,completed,
+performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,20,prune+invariants,ACCEPT,ACCEPT,false,2.5719991,2.608,47,31,0,0,0,fallback-original,completed,
+performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,20,all,ACCEPT,ACCEPT,false,2.5380006,2.576,47,31,0,0,0,fallback-original,completed,
+performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,30,none,ACCEPT,ACCEPT,false,1.0574998,1.093,255,0,127,127,11253,disabled,completed,
+performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,30,prune+invariants,ACCEPT,ACCEPT,false,5.9085007,5.951,255,127,0,0,0,fallback-original,completed,
+performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,30,all,ACCEPT,ACCEPT,false,5.9164999,5.953,255,127,0,0,0,fallback-original,completed,
+performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,40,none,ACCEPT,ACCEPT,false,4.0844993,4.117,1535,0,511,511,65525,disabled,completed,
+performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,40,prune+invariants,ACCEPT,ACCEPT,false,27.0989998,27.138,1535,1023,0,0,0,fallback-original,completed,
+performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,40,all,ACCEPT,ACCEPT,false,26.2944992,26.333,1535,1023,0,0,0,fallback-original,completed,

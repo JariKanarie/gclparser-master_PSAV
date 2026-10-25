@@ -1,12 +1,8 @@
 name:                GCLparser
 version:             0.2.1
--- synopsis:
--- description:
 license:             BSD3
 license-file:        LICENSE
 author:              Stefan Koppier, Wishnu Prasetya
--- maintainer:          s.koppier@students.uu.nl
--- copyright:
 category:            Testing
 build-type:          Simple
 extra-source-files:  README.md
@@ -39,7 +35,7 @@ Library
                      , WLP.ProgramTypes
                      , WLP.PathGen
                      , Main
-  -- other-extensions:
+                     , Benchmark
   build-depends:       base   >= 4.10
                      , array
                      , containers
@@ -97,3 +93,4 @@ executable Main
                      , WLP.Helper
                      , WLP.ProgramTypes
                      , WLP.PathGen
+                     , WLP.Invariant
