@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Run the Appendix A experiments and save compact CSV results and paper graphs."""
 import csv
+import os
 import statistics
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -20,8 +22,14 @@ MUTANT_N = range(2, 11)
 COMPLETENESS_MODE = "all"
 DEFAULT_K = 50
 K_BY_BENCHMARK = {name: 50 for name in ("memberOf", "divByN", "pullUp", "bsort", "find12", "min")}
-INVARIANT_TIMEOUT_MS = 1800
-RUN_TIMEOUT_SECONDS = 500
+# Keep performance runs serial so concurrent processes do not distort timings.
+PERFORMANCE_TIMEOUT_SECONDS = 1500
+PERFORMANCE_INVARIANT_TIMEOUT_MS = 1000
+
+# Completeness runs many independent mutant cases, so these run in parallel.
+COMPLETENESS_TIMEOUT_SECONDS = 300
+COMPLETENESS_INVARIANT_TIMEOUT_MS = 1000
+MAX_WORKERS = min(4, os.cpu_count() or 1)  # Raise/lower to fit your machine.
 
 # Find the project root whether run from the root or from src/scripts/.
 HERE = Path(__file__).absolute()
@@ -87,9 +95,7 @@ def build_main():
     return exe
 
 def parse_result(stdout):
-    keys = ["benchmark", "file", "N", "K", "heuristics", "verdict", "elapsed_seconds",
-            "paths_inspected", "paths_pruned", "full_paths_generated", "paths_verified",
-            "total_wlp_size", "invariant_status"]
+    keys = ["benchmark", "file", "N", "K", "heuristics", "verdict", "elapsed_seconds", "paths_inspected", "paths_pruned", "full_paths_generated", "paths_verified", "total_wlp_size", "invariant_status"]
     for line in stdout.splitlines():
         if line.startswith("BENCHMARK_RESULT\t"):
             values = line.split("\t")[1:]
@@ -97,11 +103,12 @@ def parse_result(stdout):
                 return dict(zip(keys, values))
     return None
 
-def run_case(exe, experiment, benchmark, kind, file, n, k, mode):
+
+def run_case(exe, experiment, benchmark, kind, file, n, k, mode, invariant_timeout_ms, run_timeout_seconds):
     started = time.perf_counter()
-    cmd = [str(exe), "--benchmark", "--file", str(file), "--k", str(k), "--n", str(n), "--heuristics", mode, "--invariant-timeout-ms", str(INVARIANT_TIMEOUT_MS)]
+    cmd = [str(exe), "--benchmark", "--file", str(file), "--k", str(k), "--n", str(n), "--heuristics", mode, "--invariant-timeout-ms", str(invariant_timeout_ms)]
     try:
-        proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=RUN_TIMEOUT_SECONDS)
+        proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=run_timeout_seconds)
         result = parse_result(proc.stdout)
         wall = time.perf_counter() - started
         if result is None:
@@ -129,9 +136,10 @@ def run_case(exe, experiment, benchmark, kind, file, n, k, mode):
             "invariant_status": result["invariant_status"], "run_status": status, "error": "",
         }
     except subprocess.TimeoutExpired:
-        return failed_row(experiment, benchmark, kind, file, n, k, mode, "TIMEOUT", time.perf_counter() - started, f"Exceeded {RUN_TIMEOUT_SECONDS}s")
+        return failed_row(experiment, benchmark, kind, file, n, k, mode, "TIMEOUT", time.perf_counter() - started, f"Exceeded {run_timeout_seconds}s")
     except Exception as exc:
         return failed_row(experiment, benchmark, kind, file, n, k, mode, "ERROR", time.perf_counter() - started, str(exc))
+
 
 def failed_row(experiment, benchmark, kind, file, n, k, mode, verdict, wall, error):
     row = {key: "" for key in COLUMNS}
@@ -157,9 +165,7 @@ def performance_graph(rows):
         for mode in PERFORMANCE_MODES:
             points = []
             for k in PERFORMANCE_K:
-                values = [float(r["elapsed_seconds"]) for r in subset
-                          if r["heuristics"] == mode and int(r["K"]) == k
-                          and r["verdict"] not in ("ERROR", "TIMEOUT", "UNKNOWN", "UNSUPPORTED")]
+                values = [float(r["elapsed_seconds"]) for r in subset if r["heuristics"] == mode and int(r["K"]) == k and r["verdict"] not in ("ERROR", "TIMEOUT", "UNKNOWN", "UNSUPPORTED")]
                 if values:
                     points.append((k, statistics.median(values)))
             if points:
@@ -172,6 +178,7 @@ def performance_graph(rows):
     fig.tight_layout()
     fig.savefig(GRAPHS / "performance_runtime_vs_K.png", dpi=180)
     plt.close(fig)
+
 
 def completeness_graphs(rows):
     GRAPHS.mkdir(parents=True, exist_ok=True)
@@ -199,8 +206,7 @@ def completeness_graphs(rows):
         points = []
         subset = [r for r in rows if r["benchmark"] == benchmark and r["case_kind"] == "mutant"]
         for n in MUTANT_N:
-            times = [float(r["elapsed_seconds"]) for r in subset
-                     if int(r["N"]) == n and r["verdict"] == "REJECT" and r["elapsed_seconds"]]
+            times = [float(r["elapsed_seconds"]) for r in subset if int(r["N"]) == n and r["verdict"] == "REJECT" and r["elapsed_seconds"]]
             if times:
                 points.append((n, statistics.median(times)))
         if points:
@@ -223,7 +229,11 @@ def run_performance(exe, originals):
         for k in PERFORMANCE_K:
             for mode in PERFORMANCE_MODES:
                 for _ in range(PERFORMANCE_REPEATS):
-                    row = run_case(exe, "performance", benchmark, "original", file, PERFORMANCE_N, k, mode)
+                    row = run_case(
+                        exe, "performance", benchmark, "original", file,
+                        PERFORMANCE_N, k, mode, PERFORMANCE_INVARIANT_TIMEOUT_MS,
+                        PERFORMANCE_TIMEOUT_SECONDS,
+                    )
                     rows.append(row)
                     append_csv(path, row)
                     done += 1
@@ -232,30 +242,58 @@ def run_performance(exe, originals):
     print(f"Saved {path} and {GRAPHS / 'performance_runtime_vs_K.png'}")
     return rows
 
+
 def run_completeness(exe, invalids, mutants):
     path = OUT / "appendix_completeness.csv"
     reset_csv(path)
     rows = []
     cases = [(name, "invalid_control", file) for name, file in invalids.items()]
     cases += [(name, "mutant", file) for name, files in mutants.items() for file in files]
-    total = len(cases) * len(MUTANT_N)
-    done = 0
-    print(f"\nCompleteness: N=2..10, mode={COMPLETENESS_MODE}, {len(cases)} files")
-    for n in MUTANT_N:
-        for benchmark, kind, file in cases:
-            k = K_BY_BENCHMARK.get(benchmark, DEFAULT_K)
-            row = run_case(exe, "completeness", benchmark, kind, file, n, k, COMPLETENESS_MODE)
+    tasks = [
+        (n, benchmark, kind, file, K_BY_BENCHMARK.get(benchmark, DEFAULT_K))
+        for n in MUTANT_N
+        for benchmark, kind, file in cases
+    ]
+    total = len(tasks)
+    print(
+        f"\nCompleteness: N={MUTANT_N.start}..{MUTANT_N.stop - 1}, "
+        f"mode={COMPLETENESS_MODE}, {len(cases)} files, {MAX_WORKERS} workers, "
+        f"timeout={COMPLETENESS_TIMEOUT_SECONDS}s"
+    )
+
+    # Each case launches its own verifier process. The main thread alone writes the CSV.
+    # Parallelizing this large experiment saves wall time without racing on output files.
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        futures = {
+            pool.submit(
+                run_case, exe, "completeness", benchmark, kind, file, n, k,
+                COMPLETENESS_MODE, COMPLETENESS_INVARIANT_TIMEOUT_MS,
+                COMPLETENESS_TIMEOUT_SECONDS,
+            ): (n, benchmark, kind, file)
+            for n, benchmark, kind, file, k in tasks
+        }
+        for done, future in enumerate(as_completed(futures), start=1):
+            n, benchmark, kind, file = futures[future]
+            try:
+                row = future.result()
+            except Exception as exc:
+                row = failed_row(
+                    "completeness", benchmark, kind, file, n,
+                    K_BY_BENCHMARK.get(benchmark, DEFAULT_K), COMPLETENESS_MODE,
+                    "ERROR", 0.0, str(exc),
+                )
             rows.append(row)
             append_csv(path, row)
-            done += 1
             if kind == "mutant":
                 outcome = "KILLED" if row["kill"] == "true" else row["verdict"]
             else:
                 outcome = f"invalid control: {row['verdict']}"
             print(f"[{done}/{total}] N={n}: {outcome} — {file.name}")
+
     completeness_graphs(rows)
     print(f"Saved {path} and two completeness graphs in {GRAPHS}")
     return rows
+
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)

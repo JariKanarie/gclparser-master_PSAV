@@ -245,7 +245,6 @@ verifyExpr tenv expr = do
   wlpAst <- buildZ3Formula tenv expr
   notWlp <- mkNot wlpAst
   assert notWlp
-  
 
   result <- solverCheck 
   case result of
