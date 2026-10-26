@@ -56,7 +56,7 @@ runBenchmark file k n mode invariantTimeoutMs = do
         Just reason -> do
           end <- getCurrentTime
           let seconds = realToFrac (diffUTCTime end start) :: Double
-          emitBenchmarkResult file k n mode "UNSUPPORTED" seconds 0 0 0 0 0 False
+          emitBenchmarkResult file k n mode "UNSUPPORTED" seconds 0 0 0 0 0 Nothing
             ("unsupported: " ++ reason)
         Nothing -> do
           let usePruning = mode `elem` ["prune", "prune+simplify", "prune+invariants", "all"]
@@ -75,14 +75,15 @@ runBenchmark file k n mode invariantTimeoutMs = do
           end <- getCurrentTime
           let seconds = realToFrac (diffUTCTime end start) :: Double
           emitBenchmarkResult file k n mode verdict seconds
-            (pathsInspected stats) (pathsPruned stats) (length paths) pathsVerified sizeSum (complete stats) invariantStatus
+            (pathsInspected stats) (pathsPruned stats) (length paths) pathsVerified sizeSum (maxDepth stats) invariantStatus
           case failedPath of
             Just badPath -> putStrLn ("BENCHMARK_FAIL_PATH\t" ++ cleanField (show badPath))
             Nothing -> pure ()
 
-emitBenchmarkResult :: FilePath -> Int -> Int -> String -> String -> Double -> Int -> Int -> Int -> Int -> Int -> Bool -> String -> IO ()
-emitBenchmarkResult file k n mode verdict seconds inspected pruned fullPaths verified wlpSize completeness invariantStatus  = do
-  let fields = [ takeBaseName file, file, show n, show k, mode, verdict, show seconds, show inspected, show pruned, show fullPaths, show verified, show wlpSize, show completeness, invariantStatus ]
+emitBenchmarkResult :: FilePath -> Int -> Int -> String -> String -> Double -> Int -> Int -> Int -> Int -> Int -> Maybe Int -> String -> IO ()
+emitBenchmarkResult file k n mode verdict seconds inspected pruned fullPaths verified wlpSize depth invariantStatus  = do
+  let depthFmt = maybe "k" show depth
+  let fields = [ takeBaseName file, file, show n, show k, mode, verdict, show seconds, show inspected, show pruned, show fullPaths, show verified, show wlpSize, depthFmt, invariantStatus ]
   putStrLn ("BENCHMARK_RESULT\t" ++ intercalate "\t" (map cleanField fields))
 
 unsupportedFeature :: Stmt -> Maybe String

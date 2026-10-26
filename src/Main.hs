@@ -18,6 +18,7 @@ import System.FilePath ((</>))
 import WLP.Wlp (wlp)
 import WLP.Invariant (removeLoopsTimeout)
 import Benchmark (runBenchmarkArgs, unsupportedFeature)
+import Data.Maybe (isJust)
 
 examplesDirs :: [FilePath]
 examplesDirs = ["examples/GCL"]
@@ -166,7 +167,7 @@ runOne path k = do
         putStrLn ("  (1) paths inspected: " ++ show (pathsInspected stats) ++ "   of which unfeasible (pruned): " ++ show (pathsPruned stats))
         putStrLn ("  (2) time:            " ++ show (diffUTCTime end start))
         putStrLn ("  (3) total wlp size:  " ++ show sizeSum)
-        putStrLn ("  (4) complete:        " ++ show (complete stats))
+        putStrLn ("  (4) complete:        " ++ show (isJust $ maxDepth stats))
 
 verifyAll :: [(String, Type)] -> [[Stmt]] -> Int -> Int -> Int -> Bool -> IO (String, Int)
 verifyAll _ [] _ sizeSum _ _ = pure ("ACCEPT -- no invalid path found among those generated", sizeSum)
