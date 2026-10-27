@@ -35,7 +35,7 @@ generatePaths sat k prog = explore k [] 0 (stmt prog) []
     step s b acc n cont
       | b <= 0      = pure (GenStats 1 0 Nothing, [])   -- would be the (K+1)th statement: not a full path, discard
       | otherwise   = case cont of
-        []          -> pure (GenStats 1 0 (Just $ k - b), [acc ++ [s]])
+        []          -> pure (GenStats 1 0 (Just $ k - b + 1), [acc ++ [s]])
         (c : rest)  -> explore (b - 1) (acc ++ [s]) n c rest
 
     -- | A branch's own condition costs one unit of b too (it becomes an Assume in the path, and the assignment counts those explicitly).
@@ -47,13 +47,13 @@ generatePaths sat k prog = explore k [] 0 (stmt prog) []
               accB  = acc ++ [Assume gB]
               b'    = b - 1
               onto sideAcc Nothing = case cont of
-                []          -> pure (GenStats 1 0 (Just $ k - b), [sideAcc])
+                []          -> pure (GenStats 1 0 (Just $ k - b + 1), [sideAcc])
                 (c:rest)    -> explore b' sideAcc n c rest
               onto sideAcc (Just s) = explore b' sideAcc n s cont
           okA <- sat (feasibilityCondPath accA)
-          (statsA, pathsA)  <- if okA then onto accA msA else pure (GenStats 1 1 (Just $ k - b), [])
+          (statsA, pathsA)  <- if okA then onto accA msA else pure (GenStats 1 1 (Just $ k - b + 1), [])
           okB <- sat (feasibilityCondPath accB)
-          (statsB, pathsB)  <- if okB then onto accB msB else pure (GenStats 1 1 (Just $ k - b), [])
+          (statsB, pathsB)  <- if okB then onto accB msB else pure (GenStats 1 1 (Just $ k - b + 1), [])
           pure (statsA <> statsB, pathsA ++ pathsB)
 
     -- | Freshen the names of the local variables in a block to ensure they are unique.

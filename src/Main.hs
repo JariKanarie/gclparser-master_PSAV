@@ -169,6 +169,7 @@ runOne path k = do
         putStrLn ("  (3) total wlp size:  " ++ show sizeSum)
         putStrLn ("  (4) complete:        " ++ show (isJust $ maxDepth stats))
 
+
 verifyAll :: [(String, Type)] -> [[Stmt]] -> Int -> Int -> Int -> Bool -> IO (String, Int)
 verifyAll _ [] _ sizeSum _ _ = pure ("ACCEPT -- no invalid path found among those generated", sizeSum)
 verifyAll tenv (path : rest) index sizeSum k logging = do

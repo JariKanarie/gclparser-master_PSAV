@@ -269,13 +269,9 @@ verifyPath wlp tenv path postCond logging = do
   pure (PathVerdict valid (exprSize wlpFormula))
 
 
--- | A three-way result for automated benchmark runs. Unlike the legacy Bool
--- API, this does not confuse a solver's Undef result with a counterexample.
+-- | A three-way result for automated benchmark runs. This does not confuse a solver's Undef result with a counterexample.
 data VerificationStatus = WLPVerified | WLPCounterexample | WLPUnknown deriving (Eq, Show)
 
--- | Verify one path without debug output. The Boolean controls whether the
--- front-end expression simplifier is used. WLPUnknown must not be counted as
--- a killed mutant or as a confirmed REJECT.
 verifyPathStatus :: Bool -> (Stmt -> Expr -> Expr) -> [(String, Type)] -> [Stmt] -> Expr -> IO (VerificationStatus, Int)
 verifyPathStatus useSimplifier wlp tenv path postCond = do
   let rawFormula = wlpPath wlp path postCond
