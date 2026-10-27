@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
-"""Run the Appendix A experiments and save compact CSV results and paper graphs."""
 import csv
 import os
+import sys
 import statistics
 import subprocess
-import sys
-import time
+import matplotlib.pyplot as plt
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-
-import matplotlib.pyplot as plt
 
 RUN_PERFORMANCE_EXPERIMENT = True
 RUN_COMPLETENESS_EXPERIMENT = True
@@ -184,14 +181,14 @@ def append_csv(path, row):
 
 def performanceGraph(rows):
     GRAPHS.mkdir(parents=True, exist_ok=True)
-    f, a = plt.subplots(1, len(ORIGINALS), figsize=(12, 3.7), sharey=False)
+    f, a = plt.subplots(1, len(ORIGINALS), figsize=(12.5, 4.0), sharey=False)
     for ax, benchmark in zip(a, ORIGINALS):
         subset = [r for r in rows if r["experiment"] == "performance" and r["benchmark"] == benchmark]
         for m in PERFORMANCE_MODES:
             p = []
             for k in PERFORMANCE_K:
                 values = [float(r["elapsed_time"]) for r in subset if r["heuristics"] == m and int(r["K"]) == k
-                    and r.get("elapsed_time", "") and r["verdict"] not in ("ERROR", "TIMEOUT", "UNKNOWN", "UNSUPPORTED")]
+                    and r.get("elapsed_time", "") and r["verdict"] not in ("ERROR", "TIMEOUT", "UNKNOWN", "UNSUPPORTED") and float(r["elapsed_time"]) > 0]
                 if values:
                     p.append((k, statistics.median(values)))
             if p:
@@ -199,7 +196,8 @@ def performanceGraph(rows):
         ax.set_title(benchmark)
         ax.set_xlabel("K")
         ax.set_xticks(PERFORMANCE_K)
-        ax.grid(True, alpha=0.25)
+        # ax.set_yscale("log")
+        ax.grid(True, which="major", alpha=0.28)
     a[0].set_ylabel("Time to verifier result (s)")
     xs = {}
     for ax in a:
@@ -209,7 +207,7 @@ def performanceGraph(rows):
     if xs:
         f.legend(xs.values(), xs.keys(), loc="upper center", ncol=3, frameon=False, fontsize=8)
     f.tight_layout(rect=(0, 0, 1, 0.88))
-    f.savefig(GRAPHS / "performance_runtime_vs_K.png", dpi=180)
+    f.savefig(GRAPHS / "performance_runtime_vs_K.png", dpi=200)
     plt.close(f)
 
     for oldName in ("performance_success_vs_K.png", "performance_full_completion_time_vs_K.png"):
@@ -341,9 +339,8 @@ def main():
     missing = [str(p) for p in ORIGINALS.values() if not p.is_file()]
     if missing:
         raise FileNotFoundError("Missing required benchmarks:\n" + "\n".join(missing))
-    invalids, mutants = invalids(), mutants()
     print(f"Project: {ROOT}")
-    print(f"Mutant files: {sum(map(len, mutants.values()))}; invalid controls found: {len(invalids)}")
+    print(f"Mutant files: {sum(map(len, mutants().values()))}; invalid controls found: {len(invalids())}")
     print("CSV records runtime, path/WLP statistics, acceptance at each K, and full-completion status/time.")
     print("Install graph dependency if needed: python -m pip install matplotlib")
     exe = build()
@@ -355,25 +352,26 @@ def main():
         print("Skipping performance experiment (RUN_PERFORMANCE_EXPERIMENT=False).")
 
     if RUN_COMPLETENESS_EXPERIMENT:
-        all_rows += runCompleteness(exe, invalids, mutants)
+        all_rows += runCompleteness(exe, invalids(), mutants())
     else:
         print("Skipping completeness experiment (RUN_COMPLETENESS_EXPERIMENT=False).")
 
+    actual_errors = [r for r in all_rows if r["run_status"] == "error"]
+    unexpected = [r for r in all_rows if r["run_status"] == "unexpected_result"]
     if not (RUN_PERFORMANCE_EXPERIMENT or RUN_COMPLETENESS_EXPERIMENT):
         print("reloading graphs from CSV files to ensure they are up to date.")
         reloadGraphs(PERFORMANCE_CSV, COMPLETENESS_CSV)
+    else:
+        timeouts = [r for r in all_rows if r["run_status"] == "timeout"]
+        inconclusive = [r for r in all_rows if r["run_status"] == "inconclusive"]
+        unsupported = [r for r in all_rows if r["run_status"] == "unsupported"]
+        controls = [r for r in all_rows if r["case_kind"] == "invalid_control"]
+        control_failures = sum(r["run_status"] != "completed" for r in controls)
+        print(f"\nDone. Results: {OUT}")
+        print(f"Invalid controls not correctly rejected: {control_failures}/{len(controls)}")
+        print(f"Timeouts: {len(timeouts)}; inconclusive/unknown: {len(inconclusive)}; " f"unsupported: {len(unsupported)}; "
+            f"unexpected results: {len(unexpected)}; " f"actual errors: {len(actual_errors)}")
 
-    actual_errors = [r for r in all_rows if r["run_status"] == "error"]
-    timeouts = [r for r in all_rows if r["run_status"] == "timeout"]
-    inconclusive = [r for r in all_rows if r["run_status"] == "inconclusive"]
-    unsupported = [r for r in all_rows if r["run_status"] == "unsupported"]
-    unexpected = [r for r in all_rows if r["run_status"] == "unexpected_result"]
-    controls = [r for r in all_rows if r["case_kind"] == "invalid_control"]
-    control_failures = sum(r["run_status"] != "completed" for r in controls)
-    print(f"\nDone. Results: {OUT}")
-    print(f"Invalid controls not correctly rejected: {control_failures}/{len(controls)}")
-    print(f"Timeouts: {len(timeouts)}; inconclusive/unknown: {len(inconclusive)}; " f"unsupported: {len(unsupported)}; "
-          f"unexpected results: {len(unexpected)}; " f"actual errors: {len(actual_errors)}")
     return 1 if actual_errors or unexpected else 0
 
 

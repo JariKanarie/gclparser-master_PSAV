@@ -1,4 +1,4 @@
-experiment,benchmark,case_kind,file,N,K,heuristics,expected_verdict,verdict,kill,elapsed_seconds,wall_seconds,paths_inspected,paths_pruned,full_paths_generated,paths_verified,total_wlp_size,max_depth,invariant_status,run_status,detail
+experiment,benchmark,case_kind,file,N,K,heuristics,expected_verdict,verdict,kill,elapsed_time,wall_seconds,paths_inspected,paths_pruned,full_paths_generated,paths_verified,total_wlp_size,max_depth,invariant_status,run_status,detail
 performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,10,none,ACCEPT,ACCEPT,false,3.25004e-2,0.126,7,0,3,3,81,K_LIMIT,disabled,completed,
 performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,10,prune,ACCEPT,ACCEPT,false,9.45005e-2,0.142,7,3,0,0,0,K_LIMIT,disabled,completed,
 performance,memberOf,original,examples\GCL\benchmark\memberOf.gcl,10,10,simplify,ACCEPT,ACCEPT,false,3.84978e-2,0.078,7,0,3,3,49,K_LIMIT,disabled,completed,
