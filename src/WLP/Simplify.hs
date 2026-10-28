@@ -15,8 +15,8 @@ simplifyExpr expr = case expr of
     OpNeg (BinopExpr LessThanEqual a b) -> simplifyExpr $ BinopExpr GreaterThan a b
     OpNeg (BinopExpr GreaterThanEqual a b) -> simplifyExpr $ BinopExpr LessThan a b
     OpNeg (BinopExpr Equal a b) -> BinopExpr Or (a `opLessThan` b) (a `opGreaterThan` b)
-    -- OpNeg (BinopExpr And a b) -> simplifyExpr $ BinopExpr Or (OpNeg a) (OpNeg b)
-    -- OpNeg (BinopExpr Or a b) -> simplifyExpr $ BinopExpr And (OpNeg a) (OpNeg b)
+    OpNeg (BinopExpr And a b) -> simplifyExpr $ BinopExpr Or (OpNeg a) (OpNeg b)
+    OpNeg (BinopExpr Or a b) -> simplifyExpr $ BinopExpr And (OpNeg a) (OpNeg b)
     OpNeg (Forall name a) -> simplifyExpr $ Exists name (OpNeg a)
     OpNeg (Exists name a) -> simplifyExpr $ Forall name (OpNeg a)
     OpNeg b -> OpNeg $ simplifyExpr b
@@ -46,8 +46,9 @@ simplifyBinopExpr :: BinOp -> Expr -> Expr -> Expr
 simplifyBinopExpr op a b
     | op == And = retree op (LitB True) . collapseOn (LitB False) . filter (/= LitB True) . combineRangesAnd . map simplifyExpr $ combineSame op a b
     | op == Or = retree op (LitB False) . collapseOn (LitB True) . filter (/= LitB False) . combineRangesOr . map simplifyExpr $ combineSame op a b
-    | op == Plus = retree op (LitI 0) . filter (/= LitI 0) . sumLitI . map simplifyExpr $ combineSame op a b
+    | op == Plus = retree op (LitI 0) . filter (/= LitI 0) . sumLitI (+) . map simplifyExpr $ combineSame op a b
     | op == Minus = retreeMin . filter (\(_, p) -> p /= LitI 0) . sumNegLitI . map (second simplifyExpr) $ combineWithDir op a b
+    | op == Multiply = retree op (LitI 1) . filter (/= LitI 1) . collapseOn (LitI 0) . sumLitI (*) . map simplifyExpr $ combineSame op a b
     | op `elem` comparisons = simplifyComparison op a b
     | op == Implication = simplifyExpr $ BinopExpr Or (OpNeg simpleA) simpleB
     | otherwise = BinopExpr op simpleA simpleB
@@ -60,7 +61,6 @@ comparisons = [GreaterThan, GreaterThanEqual, LessThan, LessThanEqual, Equal]
 
 -- always puts the variable on the left if possible
 simplifyComparison :: BinOp -> Expr -> Expr -> Expr
-simplifyComparison comp a b | simplifyExpr a == simplifyExpr b = LitB $ comp `elem` [GreaterThanEqual, LessThanEqual, Equal]
 simplifyComparison comp (LitI a) (LitI b) = case comp of
     Equal -> LitB $ a == b
     GreaterThan -> LitB $ a > b
@@ -81,16 +81,25 @@ simplifyComparison comp f (BinopExpr Plus e (Var x)) = BinopExpr (flipComp comp)
 simplifyComparison comp f (BinopExpr Minus (Var x) e) = BinopExpr (flipComp comp) (Var x) . simplifyExpr $ BinopExpr Plus (simplifyExpr f) (simplifyExpr e)
 simplifyComparison comp f (BinopExpr Minus e (Var x)) = BinopExpr comp (Var x) . simplifyExpr $ BinopExpr Minus (simplifyExpr e) (simplifyExpr f)
 simplifyComparison comp a (Var x) = BinopExpr (flipComp comp) (Var x) (simplifyExpr a)
-simplifyComparison comp (BinopExpr Plus (SizeOf x) e) f = BinopExpr comp (SizeOf x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
-simplifyComparison comp (BinopExpr Plus e (SizeOf x)) f = BinopExpr comp (SizeOf x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
-simplifyComparison comp (BinopExpr Minus (SizeOf x) e) f = BinopExpr comp (SizeOf x) . simplifyExpr $ BinopExpr Plus (simplifyExpr f) (simplifyExpr e)
-simplifyComparison comp (BinopExpr Minus e (SizeOf x)) f = BinopExpr (flipComp comp) (SizeOf x) . simplifyExpr $ BinopExpr Minus (simplifyExpr e) (simplifyExpr f)
-simplifyComparison comp f (BinopExpr Plus (SizeOf x) e) = BinopExpr (flipComp comp) (SizeOf x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
-simplifyComparison comp f (BinopExpr Plus e (SizeOf x)) = BinopExpr (flipComp comp) (SizeOf x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
-simplifyComparison comp f (BinopExpr Minus (SizeOf x) e) = BinopExpr (flipComp comp) (SizeOf x) . simplifyExpr $ BinopExpr Plus (simplifyExpr f) (simplifyExpr e)
-simplifyComparison comp f (BinopExpr Minus e (SizeOf x)) = BinopExpr comp (SizeOf x) . simplifyExpr $ BinopExpr Minus (simplifyExpr e) (simplifyExpr f)
-simplifyComparison comp a (SizeOf x) = BinopExpr (flipComp comp) (SizeOf x) (simplifyExpr a)
-simplifyComparison comp a b = BinopExpr comp (simplifyExpr a) (simplifyExpr b)
+simplifyComparison comp (BinopExpr Plus (SizeOf x) e) f = BinopExpr comp (simplifyExpr $ SizeOf x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
+simplifyComparison comp (BinopExpr Plus e (SizeOf x)) f = BinopExpr comp (simplifyExpr $ SizeOf x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
+simplifyComparison comp (BinopExpr Minus (SizeOf x) e) f = BinopExpr comp (simplifyExpr $ SizeOf x) . simplifyExpr $ BinopExpr Plus (simplifyExpr f) (simplifyExpr e)
+simplifyComparison comp (BinopExpr Minus e (SizeOf x)) f = BinopExpr (flipComp comp) (simplifyExpr $ SizeOf x) . simplifyExpr $ BinopExpr Minus (simplifyExpr e) (simplifyExpr f)
+simplifyComparison comp f (BinopExpr Plus (SizeOf x) e) = BinopExpr (flipComp comp) (simplifyExpr $ SizeOf x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
+simplifyComparison comp f (BinopExpr Plus e (SizeOf x)) = BinopExpr (flipComp comp) (simplifyExpr $ SizeOf x) . simplifyExpr $ BinopExpr Minus (simplifyExpr f) (simplifyExpr e)
+simplifyComparison comp f (BinopExpr Minus (SizeOf x) e) = BinopExpr (flipComp comp) (simplifyExpr $ SizeOf x) . simplifyExpr $ BinopExpr Plus (simplifyExpr f) (simplifyExpr e)
+simplifyComparison comp f (BinopExpr Minus e (SizeOf x)) = BinopExpr comp (simplifyExpr $ SizeOf x) . simplifyExpr $ BinopExpr Minus (simplifyExpr e) (simplifyExpr f)
+simplifyComparison comp a (SizeOf x) = BinopExpr (flipComp comp) (simplifyExpr $ SizeOf x) (simplifyExpr a)
+simplifyComparison Equal (LitB True) x = simplifyExpr x 
+simplifyComparison Equal (LitB False) x = simplifyExpr $ OpNeg x 
+simplifyComparison Equal x (LitB True) = simplifyExpr x 
+simplifyComparison Equal x (LitB False) = simplifyExpr $ OpNeg x 
+simplifyComparison comp a b = let 
+    simpleA = simplifyExpr a
+    simpleB = simplifyExpr b 
+        in if simpleA == simpleB 
+            then LitB $ comp `elem` [GreaterThanEqual, LessThanEqual, Equal] 
+            else BinopExpr comp (simplifyExpr a) (simplifyExpr b)
 
 flipComp :: BinOp -> BinOp
 flipComp GreaterThan = LessThan
@@ -131,11 +140,11 @@ retreeMin l
 collapseOn :: Expr -> [Expr] -> [Expr]
 collapseOn evil exprs = if evil `elem` exprs then [evil] else exprs
 
-sumLitI :: [Expr] -> [Expr]
-sumLitI exprs = (\(s, o) -> LitI s : o) $ foldr f (0, []) exprs
+sumLitI :: (Int -> Int -> Int) -> [Expr] -> [Expr]
+sumLitI op exprs = (\(s, o) -> LitI s : o) $ foldr f (0, []) exprs
     where
         f :: Expr -> (Int, [Expr]) -> (Int, [Expr])
-        f (LitI i) (s, r) = (s + i, r)
+        f (LitI i) (s, r) = (s `op` i, r)
         f other (s, r) = (s, other:r)
 
 sumNegLitI :: [(Bool, Expr)] -> [(Bool, Expr)]
@@ -162,7 +171,9 @@ combineRangesOr exprs = combinedRange : untouched
     isRangeComparison (BinopExpr op (Var _) (LitI _)) = op `elem` comparisons
     isRangeComparison _ = False
     (ranges, untouched) = partition isRangeComparison exprs
-    negated = map (simplifyExpr . OpNeg) ranges
+    negated = concatMap (\x -> case simplifyExpr $ OpNeg x of
+        BinopExpr Or a b -> [a, b]
+        a -> [a]) ranges
     combinedRange = simplifyExpr . OpNeg . retree And (LitB True) $ combineRangesAndR Map.empty negated
     
 data RangeEnd = NegInf | Nb Int | Inf
@@ -172,7 +183,7 @@ type Range = (RangeEnd, RangeEnd)
 combineRangesAndR :: Map.Map String [Range] -> [Expr] -> [Expr]
 combineRangesAndR m [] = concatMap (\(x, ranges) -> rangeToExprAnd x $ intersectRanges ranges) $ Map.toList m
 combineRangesAndR m ((BinopExpr op (Var x) (LitI i)):xs) = combineRangesAndR (Map.alter (\v -> Just $ compAndIntToRange op i:fromMaybe [] v) x m) xs
-combineRangesAndR _ _ = error "invalid range"
+combineRangesAndR m n = error $ "invalid range" ++ show m ++ show n
 
 compAndIntToRange :: BinOp -> Int -> Range
 compAndIntToRange GreaterThanEqual i = (Nb i, Inf)

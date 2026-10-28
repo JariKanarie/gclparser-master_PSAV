@@ -147,8 +147,8 @@ runOne path k = do
         start <- getCurrentTime
 
         putStrLn "\n=== Stage 1: removing loops ==="
-        let invariantTimeoutMicros = 1000 * 1000
-        (abstractedStmt, _, loopAbstractionComplete) <- removeLoopsTimeout tenv wlp k (stmt prog) invariantTimeoutMicros
+        let invariantTimeoutMillies = 1000
+        (abstractedStmt, _, loopAbstractionComplete) <- removeLoopsTimeout tenv wlp k (stmt prog) invariantTimeoutMillies
         let stmts = if loopAbstractionComplete then abstractedStmt else stmt prog
         putStrLn $ if loopAbstractionComplete
           then "Loop abstraction: all loops handled using proved invariants."

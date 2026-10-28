@@ -10,15 +10,16 @@ import WLP.ProgramTypes (typeEnv)
 
 main :: IO ()
 main = do
-    gcl <- parseGCLfile "examples/GCL/benchmark/pullUp.gcl"
+    gcl <- parseGCLfile "examples/GCL/benchmark/bsort.gcl"
     let (Right prg) = gcl
     let tenv = typeEnv prg
 
-    -- print (stmt prg)
-    (prg2, _, _) <- evalZ3 $ removeLoops tenv wlp 5 (stmt prg)
-    -- print prg2
-    a <- evalZ3 $ wlpZ3 tenv 5 prg2 (LitB True)
-    print a
+    print (stmt prg)
+    (prg2, _, _) <- removeLoopsTimeout tenv wlp 50 (stmt prg) 1000
+    putStrLn "====="
+    print prg2
+    let a = wlp 5 prg2 (LitB True)
+    -- print a
     putStrLn "====="
     print $ simplifyExpr a
     

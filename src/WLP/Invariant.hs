@@ -9,7 +9,8 @@ module WLP.Invariant (
 import GCL.GCLParser.GCLDatatype
 import WLP.Simplify (simplifyExpr)
 import Z3.Z3ModelChecker (verifyExpr)
-import Z3.Monad (Z3, evalZ3)
+import Z3.Monad (Z3, evalZ3With)
+import Z3.Opts (opt)
 import System.Timeout (timeout)
 import Control.Monad (join)
 
@@ -28,8 +29,9 @@ findInvariant tenv wlp k g body q expr = do
 
 findInvariantTimeout :: [(String, Type)] -> (Stmt -> Expr -> Expr) -> Int -> Expr -> Stmt -> Expr -> Expr -> Int -> IO (Maybe Expr)
 findInvariantTimeout tenv wlp k g body q expr time = do
-    res <- timeout time . evalZ3 $ findInvariant tenv wlp k g body q expr
-    return $ join res
+    let options = opt "timeout" time
+    r <- timeout (time * 1000) $ do evalZ3With Nothing options $ findInvariant tenv wlp k g body q expr
+    return $ join r
 
 removeLoops :: [(String, Type)] -> (Int -> Stmt -> Expr -> Expr) -> Int -> Stmt -> Z3 (Stmt, Expr, Bool)
 removeLoops tenv wlp k p = removeLoopsR tenv wlp k p (LitB True) True
@@ -55,13 +57,13 @@ removeLoopInvariant tenv wlp k g body q asinv = do
     if complete then do
         invariant <- findInvariant tenv (wlp k) k g newBody q asinv
         case invariant of
-            Nothing -> return (While g newBody, wlp k (findInvariantStmt k g newBody) q, False)
-            Just inv -> if asinv == LitB True 
-                then return (Seq (Assert inv) (Assume $ OpNeg g), inv, True)
+            Just inv -> return (Seq (Assert inv) (Assume $ OpNeg g), inv, True)
+            Nothing -> if asinv == LitB True
+                then return (While g newBody, wlp k (findInvariantStmt k g newBody) q, False)
                 else do
                     invariant2 <- findInvariant tenv (wlp k) k g newBody q (LitB True)
                     case invariant2 of
-                        Nothing -> return (While g newBody, wlp k (findInvariantStmt k g newBody) q, False)
+                        Nothing -> return (Seq (Assert asinv) $ While g newBody, wlp k (findInvariantStmt k g newBody) q, False)
                         Just inv2 -> return (Seq (Assert inv2) (Assume $ OpNeg g), inv2, True)
     else do
         return (While g newBody, wlp k (findInvariantStmt k g newBody) q, False)
@@ -90,13 +92,13 @@ removeLoopInvariantTimeout tenv wlp k g body q asinv time = do
     if complete then do
         invariant <- findInvariantTimeout tenv (wlp k) k g newBody q asinv time
         case invariant of
-            Nothing -> return (While g newBody, wlp k (findInvariantStmt k g newBody) q, False)
-            Just inv -> if asinv == LitB True 
-                then return (Seq (Assert inv) (Assume $ OpNeg g), inv, True)
+            Just inv -> return (Seq (Assert inv) (Assume $ OpNeg g), inv, True)
+            Nothing -> if asinv == LitB True
+                then return (While g newBody, wlp k (findInvariantStmt k g newBody) q, False)
                 else do
                     invariant2 <- findInvariantTimeout tenv (wlp k) k g newBody q (LitB True) time
                     case invariant2 of
-                        Nothing -> return (While g newBody, wlp k (findInvariantStmt k g newBody) q, False)
+                        Nothing -> return (Seq (Assert asinv) $ While g newBody, wlp k (findInvariantStmt k g newBody) q, False)
                         Just inv2 -> return (Seq (Assert inv2) (Assume $ OpNeg g), inv2, True)
     else do
         return (While g newBody, wlp k (findInvariantStmt k g newBody) q, False)

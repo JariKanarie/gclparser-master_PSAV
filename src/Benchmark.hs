@@ -65,7 +65,7 @@ runBenchmark file k n mode invariantTimeoutMs = do
           (stmts, invariantStatus) <-
             if useInvariants
               then do
-                (abstractedStmt, _, complete) <- removeLoopsTimeout tenv wlp k (stmt prog) (invariantTimeoutMs * 1000)
+                (abstractedStmt, _, complete) <- removeLoopsTimeout tenv wlp k (stmt prog) invariantTimeoutMs
                 pure ( abstractedStmt, if complete then "complete" else "partial" )
               else pure (stmt prog, "disabled")
           let satCheck formula = if usePruning then checkSatisfiable tenv formula else pure True
