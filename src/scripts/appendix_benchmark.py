@@ -8,8 +8,8 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-RUN_COMPLETENESS_EXPERIMENT = True
-RUN_PERFORMANCE_EXPERIMENT = True
+RUN_COMPLETENESS_EXPERIMENT = False
+RUN_PERFORMANCE_EXPERIMENT = False
 # Performance settings
 PERFORMANCE_N = 10
 PERFORMANCE_K = [10, 20, 30, 40, 50, 60]
@@ -240,11 +240,11 @@ def performanceGraph(rows):
 def completenessGraphs(rows):
     import matplotlib.pyplot as plt
     GRAPHS.mkdir(parents=True, exist_ok=True)
-    benchmarks = sorted({r["benchmark"] for r in rows if r["kind"] == "mutant"})
+    benchmarks = sorted({r["benchmark"] for r in rows if r["case_kind"] == "mutant"})
     fig, ax = plt.subplots(figsize=(7, 4))
     for benchmark in benchmarks:
         p = []
-        s = [r for r in rows if r["benchmark"] == benchmark and r["kind"] == "mutant"]
+        s = [r for r in rows if r["benchmark"] == benchmark and r["case_kind"] == "mutant"]
         for n in MUTANT_N:
             tested = [r for r in s if int(r["N"]) == n and r["verdict"] in ("ACCEPT", "REJECT")]
             if tested:
@@ -260,7 +260,7 @@ def completenessGraphs(rows):
     fig, ax = plt.subplots(figsize=(7, 4))
     for benchmark in benchmarks:
         p = []
-        s = [r for r in rows if r["benchmark"] == benchmark and r["kind"] == "mutant"]
+        s = [r for r in rows if r["benchmark"] == benchmark and r["case_kind"] == "mutant"]
         for n in MUTANT_N:
             times = [float(r["elapsed_time"]) for r in s if int(r["N"]) == n and r["verdict"] == "REJECT" and r["elapsed_time"]]
             if times:
