@@ -42,6 +42,7 @@ GRAPHS = OUT / "graphs"
 PERFORMANCE_CSV = OUT / "appendix_performance.csv"
 COMPLETENESS_CSV = OUT / "appendix_completeness.csv"
 ORIGINALS = {name: BENCH / f"{name}.gcl" for name in ("bsort", "memberOf", "divByN", "pullUp")}
+ORIGINALS = {name: BENCH / f"{name}.gcl" for name in ("memberOf", "divByN", "pullUp")}
 INVALID_STEMS = {name: f"invalid{name[0].upper()}{name[1:]}" for name in ("memberOf", "divByN", "pullUp", "bsort", "find12", "min")}
 COLUMNS = [
     "experiment", "benchmark", "kind", "file", "N", "K", "heuristics", "expected_verdict", "verdict", "kill", "elapsed_time", "wall_seconds", "paths_inspected",
