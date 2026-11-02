@@ -2,13 +2,13 @@
 import csv
 import os
 import sys
+import time
 import statistics
 import subprocess
 import matplotlib.pyplot as plt
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-RUN_PERFORMANCE_EXPERIMENT = False
 RUN_COMPLETENESS_EXPERIMENT = False
 # Performance settings
 PERFORMANCE_N = 10
@@ -41,7 +41,7 @@ OUT = ROOT / "results" / "appendix"
 GRAPHS = OUT / "graphs"
 PERFORMANCE_CSV = OUT / "appendix_performance.csv"
 COMPLETENESS_CSV = OUT / "appendix_completeness.csv"
-ORIGINALS = {name: BENCH / f"{name}.gcl" for name in ("memberOf", "divByN", "pullUp")}
+ORIGINALS = {name: BENCH / f"{name}.gcl" for name in ("bsort", "memberOf", "divByN", "pullUp")}
 INVALID_STEMS = {name: f"invalid{name[0].upper()}{name[1:]}" for name in ("memberOf", "divByN", "pullUp", "bsort", "find12", "min")}
 COLUMNS = [
     "experiment", "benchmark", "kind", "file", "N", "K", "heuristics", "expected_verdict", "verdict", "kill", "elapsed_time", "wall_seconds", "paths_inspected",
@@ -142,12 +142,12 @@ def run(exe, experiment, benchmark, kind, file, n, k, mode, invariant_timeout_ms
         else:
             status = "completed"
         inv = r.get("invariant_status", "")
-        time = r.get("elapsed_time", "")
+        elapsed_time = r.get("elapsed_time", "")
         return {
-            "experiment": experiment, "benchmark": benchmark, "case_kind": kind,
+            "experiment": experiment, "benchmark": benchmark, "kind": kind,
             "file": clean_path(file), "N": n, "K": k, "heuristics": mode,
             "expected_verdict": expected, "verdict": verdict, "kill": str(killed).lower(),
-            "elapsed_time": time, "wall_seconds": f"{w:.3f}",
+            "elapsed_time": elapsed_time, "wall_seconds": f"{w:.3f}",
             "paths_inspected": r.get("paths_inspected", ""),
             "paths_pruned": r.get("paths_pruned", ""),
             "full_paths_generated": r.get("full_paths_generated", ""),
@@ -165,7 +165,7 @@ def run(exe, experiment, benchmark, kind, file, n, k, mode, invariant_timeout_ms
 def failed(experiment, benchmark, kind, file, n, k, mode, verdict, wall, detail):
     row = {key: "" for key in COLUMNS}
     expected = {"original": "ACCEPT", "invalid_control": "REJECT"}.get(kind, "NOT_KNOWN")
-    row.update(experiment=experiment, benchmark=benchmark, case_kind=kind, file=clean_path(file), N=n, K=k, heuristics=mode, expected_verdict=expected, 
+    row.update(experiment=experiment, benchmark=benchmark, kind=kind, file=clean_path(file), N=n, K=k, heuristics=mode, expected_verdict=expected, 
                verdict=verdict, kill="false", wall_seconds=f"{wall:.3f}", run_status=("inconclusive" if verdict == "UNKNOWN" else verdict.lower()), detail=detail)
     return row
 
@@ -238,11 +238,11 @@ def performanceGraph(rows):
 
 def completenessGraphs(rows):
     GRAPHS.mkdir(parents=True, exist_ok=True)
-    benchmarks = sorted({r["benchmark"] for r in rows if r["case_kind"] == "mutant"})
+    benchmarks = sorted({r["benchmark"] for r in rows if r["kind"] == "mutant"})
     fig, ax = plt.subplots(figsize=(7, 4))
     for benchmark in benchmarks:
         p = []
-        s = [r for r in rows if r["benchmark"] == benchmark and r["case_kind"] == "mutant"]
+        s = [r for r in rows if r["benchmark"] == benchmark and r["kind"] == "mutant"]
         for n in MUTANT_N:
             tested = [r for r in s if int(r["N"]) == n and r["verdict"] in ("ACCEPT", "REJECT")]
             if tested:
@@ -258,7 +258,7 @@ def completenessGraphs(rows):
     fig, ax = plt.subplots(figsize=(7, 4))
     for benchmark in benchmarks:
         p = []
-        s = [r for r in rows if r["benchmark"] == benchmark and r["case_kind"] == "mutant"]
+        s = [r for r in rows if r["benchmark"] == benchmark and r["kind"] == "mutant"]
         for n in MUTANT_N:
             times = [float(r["elapsed_time"]) for r in s if int(r["N"]) == n and r["verdict"] == "REJECT" and r["elapsed_time"]]
             if times:
@@ -386,7 +386,7 @@ def main():
     timeouts = [r for r in all_rows if r["run_status"] == "timeout"]
     inconclusive = [r for r in all_rows if r["run_status"] == "inconclusive"]
     unsupported = [r for r in all_rows if r["run_status"] == "unsupported"]
-    controls = [r for r in all_rows if r["case_kind"] == "invalid_control"]
+    controls = [r for r in all_rows if r["kind"] == "invalid_control"]
     control_failures = sum(r["run_status"] != "completed" for r in controls)
     print(f"\nDone. Results: {OUT}")
     print(f"Invalid controls not correctly rejected: {control_failures}/{len(controls)}")
