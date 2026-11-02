@@ -5,11 +5,11 @@ import sys
 import time
 import statistics
 import subprocess
-import matplotlib.pyplot as plt
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-RUN_COMPLETENESS_EXPERIMENT = False
+RUN_COMPLETENESS_EXPERIMENT = True
+RUN_PERFORMANCE_EXPERIMENT = True
 # Performance settings
 PERFORMANCE_N = 10
 PERFORMANCE_K = [10, 20, 30, 40, 50, 60]
@@ -41,11 +41,10 @@ OUT = ROOT / "results" / "appendix"
 GRAPHS = OUT / "graphs"
 PERFORMANCE_CSV = OUT / "appendix_performance.csv"
 COMPLETENESS_CSV = OUT / "appendix_completeness.csv"
-ORIGINALS = {name: BENCH / f"{name}.gcl" for name in ("bsort", "memberOf", "divByN", "pullUp")}
-ORIGINALS = {name: BENCH / f"{name}.gcl" for name in ("memberOf", "divByN", "pullUp")}
+ORIGINALS = {name: BENCH / f"{name}.gcl" for name in ("memberOf", "divByN", "pullUp", "bsort")}
 INVALID_STEMS = {name: f"invalid{name[0].upper()}{name[1:]}" for name in ("memberOf", "divByN", "pullUp", "bsort", "find12", "min")}
 COLUMNS = [
-    "experiment", "benchmark", "kind", "file", "N", "K", "heuristics", "expected_verdict", "verdict", "kill", "elapsed_time", "wall_seconds", "paths_inspected",
+    "experiment", "benchmark", "case_kind", "file", "N", "K", "heuristics", "expected_verdict", "verdict", "kill", "elapsed_time", "wall_seconds", "paths_inspected",
     "paths_pruned", "full_paths_generated", "paths_verified", "total_wlp_size", "max_depth", "invariant_status", "run_status", "detail"
 ]
 
@@ -180,6 +179,7 @@ def append_csv(path, row):
         csv.DictWriter(f, fieldnames=COLUMNS).writerow(row)
 
 def performanceGraph(rows):
+    import matplotlib.pyplot as plt
     GRAPHS.mkdir(parents=True, exist_ok=True)
     modes = ["none"] + [mode for mode in PERFORMANCE_MODES if mode != "none"]
     baseline_style = {"color": "black", "linestyle": "--", "alpha": 0.5, "linewidth": 2.0, "marker": "s", "zorder": 5}
@@ -238,6 +238,7 @@ def performanceGraph(rows):
     #         old.unlink()
 
 def completenessGraphs(rows):
+    import matplotlib.pyplot as plt
     GRAPHS.mkdir(parents=True, exist_ok=True)
     benchmarks = sorted({r["benchmark"] for r in rows if r["kind"] == "mutant"})
     fig, ax = plt.subplots(figsize=(7, 4))
@@ -398,8 +399,4 @@ def main():
 
 
 if __name__ == "__main__":
-    try:
-        raise SystemExit(main())
-    except Exception as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        raise SystemExit(2)
+    main()

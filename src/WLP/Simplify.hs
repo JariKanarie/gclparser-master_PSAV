@@ -15,8 +15,8 @@ simplifyExpr expr = case expr of
     OpNeg (BinopExpr LessThanEqual a b) -> simplifyExpr $ BinopExpr GreaterThan a b
     OpNeg (BinopExpr GreaterThanEqual a b) -> simplifyExpr $ BinopExpr LessThan a b
     OpNeg (BinopExpr Equal a b) -> BinopExpr Or (a `opLessThan` b) (a `opGreaterThan` b)
-    OpNeg (BinopExpr And a b) -> simplifyExpr $ BinopExpr Or (OpNeg a) (OpNeg b)
-    OpNeg (BinopExpr Or a b) -> simplifyExpr $ BinopExpr And (OpNeg a) (OpNeg b)
+    -- OpNeg (BinopExpr And a b) -> simplifyExpr $ BinopExpr Or (OpNeg a) (OpNeg b)
+    -- OpNeg (BinopExpr Or a b) -> simplifyExpr $ BinopExpr And (OpNeg a) (OpNeg b)
     OpNeg (Forall name a) -> simplifyExpr $ Exists name (OpNeg a)
     OpNeg (Exists name a) -> simplifyExpr $ Forall name (OpNeg a)
     OpNeg b -> OpNeg $ simplifyExpr b

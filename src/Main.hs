@@ -148,11 +148,10 @@ runOne path k = do
 
         putStrLn "\n=== Stage 1: removing loops ==="
         let invariantTimeoutMillies = 1000
-        (abstractedStmt, _, loopAbstractionComplete) <- removeLoopsTimeout tenv wlp k (stmt prog) invariantTimeoutMillies
-        let stmts = if loopAbstractionComplete then abstractedStmt else stmt prog
+        (stmts, _, loopAbstractionComplete) <- removeLoopsTimeout tenv wlp k (stmt prog) invariantTimeoutMillies
         putStrLn $ if loopAbstractionComplete
           then "Loop abstraction: all loops handled using proved invariants."
-          else "Loop abstraction incomplete: discarded partial rewrite; using original program for bounded path exploration."
+          else "Loop abstraction incomplete: unable to remove all loops."
         when logging (print stmts)
 
         putStrLn ("\n=== Stage 2: generating paths up to K=" ++ show k ++ " ===")
