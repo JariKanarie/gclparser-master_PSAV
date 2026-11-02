@@ -24,7 +24,7 @@ generatePaths sat k prog = explore k [] 0 (stmt prog) []
     explore b acc n cur cont = case cur of
       Seq s1 s2           -> explore b acc n s1 (s2 : cont)
       IfThenElse g s1 s2  -> branch (g, Just s1) (OpNeg g, Just s2) b acc n cont
-      While g body        -> branch (OpNeg g, Nothing) (g, Just (Seq body (While g body)))  b acc n cont
+      While g body        -> branch (OpNeg g, Nothing) (g, Just (Seq body (While g body))) b acc n cont
       Block decls s       -> let (s', n') = freshBlock n decls s in explore b acc n' s' cont
       TryCatch {}         -> error "TryCatch not implemented yet" -- exceptions extension (4.1), not implemented
       DrefAssign {}       -> error "DrefAssign not implemented yet" -- pointer extension (4.2), not implemented
