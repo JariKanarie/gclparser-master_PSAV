@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-RUN_PERFORMANCE_EXPERIMENT = True
-RUN_COMPLETENESS_EXPERIMENT = True
+RUN_PERFORMANCE_EXPERIMENT = False
+RUN_COMPLETENESS_EXPERIMENT = False
 # Performance settings
 PERFORMANCE_N = 10
 PERFORMANCE_K = [10, 20, 30, 40, 50, 60]
@@ -76,7 +76,6 @@ def mutants():
 def build():
     def execute(args):
         return subprocess.run(args, cwd=ROOT, text=True, capture_output=True)
-
     build = execute(["cabal", "build", "exe:Main"])
     if build.returncode:
         raise RuntimeError((build.stdout + "\n" + build.stderr)[-5000:])
@@ -110,12 +109,12 @@ def parseResult(stdout):
 
 
 def run(exe, experiment, benchmark, kind, file, n, k, mode, invariant_timeout_ms, run_timeout_seconds):
-    startTime = timeDOne.perf_counter()
+    sTime = time.perf_counter()
     cmd = [str(exe), "--benchmark", "--file", str(file), "--k", str(k), "--n", str(n), "--heuristics", mode, "--invariant-timeout-ms", str(invariant_timeout_ms)]
     try:
         p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=run_timeout_seconds)
         r = parseResult(p.stdout)
-        w = timeDOne.perf_counter() - startTime
+        w = time.perf_counter() - sTime
         if r is None:
             out = (p.stdout or "") + "\n" + (p.stderr or "")
             errors = next((line.split("\t", 1)[1] for line in out.splitlines() if line.startswith("BENCHMARK_ERROR\t")), None)
@@ -143,12 +142,12 @@ def run(exe, experiment, benchmark, kind, file, n, k, mode, invariant_timeout_ms
         else:
             status = "completed"
         inv = r.get("invariant_status", "")
-        timeDOne = r.get("elapsed_time", "")
+        time = r.get("elapsed_time", "")
         return {
             "experiment": experiment, "benchmark": benchmark, "case_kind": kind,
             "file": clean_path(file), "N": n, "K": k, "heuristics": mode,
             "expected_verdict": expected, "verdict": verdict, "kill": str(killed).lower(),
-            "elapsed_time": timeDOne, "wall_seconds": f"{w:.3f}",
+            "elapsed_time": time, "wall_seconds": f"{w:.3f}",
             "paths_inspected": r.get("paths_inspected", ""),
             "paths_pruned": r.get("paths_pruned", ""),
             "full_paths_generated": r.get("full_paths_generated", ""),
@@ -158,9 +157,9 @@ def run(exe, experiment, benchmark, kind, file, n, k, mode, invariant_timeout_ms
             "invariant_status": inv, "run_status": status, "detail": "",
         }
     except subprocess.TimeoutExpired:
-        return failed(experiment, benchmark, kind, file, n, k, mode, "TIMEOUT", timeDOne.perf_counter() - startTime, f"Exceeded {run_timeout_seconds}s")
+        return failed(experiment, benchmark, kind, file, n, k, mode, "TIMEOUT", time.perf_counter() - sTime, f"Exceeded {run_timeout_seconds}s")
     except Exception as exc:
-        return failed(experiment, benchmark, kind, file, n, k, mode, "ERROR", timeDOne.perf_counter() - startTime, str(exc))
+        return failed(experiment, benchmark, kind, file, n, k, mode, "ERROR", time.perf_counter() - sTime, str(exc))
 
 
 def failed(experiment, benchmark, kind, file, n, k, mode, verdict, wall, detail):
@@ -181,45 +180,65 @@ def append_csv(path, row):
 
 def performanceGraph(rows):
     GRAPHS.mkdir(parents=True, exist_ok=True)
-    f, a = plt.subplots(1, len(ORIGINALS), figsize=(12.5, 4.0), sharey=False)
-    for ax, benchmark in zip(a, ORIGINALS):
-        subset = [r for r in rows if r["experiment"] == "performance" and r["benchmark"] == benchmark]
-        for m in PERFORMANCE_MODES:
-            p = []
+    modes = ["none"] + [mode for mode in PERFORMANCE_MODES if mode != "none"]
+    baseline_style = {"color": "black", "linestyle": "--", "alpha": 0.5, "linewidth": 2.0, "marker": "s", "zorder": 5}
+    def save_graph(bench, s, modes, file, scale):
+        fig, ax = plt.subplots(figsize=(7.2, 4.6))
+        for mode in modes:
+            points = []
             for k in PERFORMANCE_K:
-                values = [float(r["elapsed_time"]) for r in subset if r["heuristics"] == m and int(r["K"]) == k
-                    and r.get("elapsed_time", "") and r["verdict"] not in ("ERROR", "TIMEOUT", "UNKNOWN", "UNSUPPORTED") and float(r["elapsed_time"]) > 0]
-                if values:
-                    p.append((k, statistics.median(values)))
-            if p:
-                ax.plot([x for x, _ in p], [y for _, y in p], marker="o", label=m)
-        ax.set_title(benchmark)
-        ax.set_xlabel("K")
+                times = [
+                    float(row["elapsed_time"]) for row in s
+                    if row["heuristics"] == mode and int(row["K"]) == k
+                    and row["verdict"] not in ("ERROR", "TIMEOUT", "UNKNOWN", "UNSUPPORTED")
+                    and row["elapsed_time"] and float(row["elapsed_time"]) > 0
+                ]
+                if times:
+                    points.append((k, statistics.median(times)))
+            if points:
+                style = baseline_style if mode == "none" else {}
+                ax.plot(
+                    [x for x, _ in points], [y for _, y in points],
+                    marker=style.get("marker", "o"),
+                    linestyle=style.get("linestyle", "-"),
+                    linewidth=style.get("linewidth", 1.6),
+                    color=style.get("color"),
+                    alpha=style.get("alpha", 1.0),
+                    zorder=style.get("zorder", 2),
+                    label="none (baseline)" if mode == "none" else mode,
+                )
+        ax.set_title(bench)
+        ax.set_xlabel("K (path-depth bound)")
+        ax.set_ylabel("Time to verifier result (seconds)")
         ax.set_xticks(PERFORMANCE_K)
-        # ax.set_yscale("log")
-        ax.grid(True, which="major", alpha=0.28)
-    a[0].set_ylabel("Time to verifier result (s)")
-    xs = {}
-    for ax in a:
-        handles, labels = ax.get_legend_handles_labels()
-        for handle, label in zip(handles, labels):
-            xs.setdefault(label, handle)
-    if xs:
-        f.legend(xs.values(), xs.keys(), loc="upper center", ncol=3, frameon=False, fontsize=8)
-    f.tight_layout(rect=(0, 0, 1, 0.88))
-    f.savefig(GRAPHS / "performance_runtime_vs_K.png", dpi=200)
-    plt.close(f)
+        if scale:
+            ax.set_yscale("log")
+        ax.grid(True, which="both" if scale else "major", alpha=0.25)
+        ax.legend(frameon=False, fontsize=9)
+        fig.tight_layout()
+        fig.savefig(GRAPHS / file, dpi=200, bbox_inches="tight")
+        plt.close(fig)
 
-    for oldName in ("performance_success_vs_K.png", "performance_full_completion_time_vs_K.png"):
-        old = GRAPHS / oldName
-        if old.exists():
-            old.unlink()
+    for benchmark in ORIGINALS:
+        subset = [row for row in rows if row["experiment"] == "performance" and row["benchmark"] == benchmark]
+        save_graph(benchmark, subset, modes, f"performance_{benchmark}_runtime_vs_K.png", False)
+        save_graph(benchmark, subset, modes, f"performance_{benchmark}_runtime_vs_K_log.png", True)
+        for mode in modes:
+            if mode == "none":
+                continue
+            name = mode.replace("+", "_")
+            save_graph(benchmark, subset, ["none", mode], f"performance_{benchmark}_{name}_vs_none.png", False)
+            save_graph(benchmark, subset, ["none", mode], f"performance_{benchmark}_{name}_vs_none_log.png", True)
 
+    # # Remove obsolete combined charts from earlier versions.
+    # for old_name in ("performance_runtime_vs_K.png", "performance_runtime_vs_K_log.png", "performance_success_vs_K.png", "performance_full_completion_time_vs_K.png"):
+    #     old = GRAPHS / old_name
+    #     if old.exists():
+    #         old.unlink()
 
 def completenessGraphs(rows):
     GRAPHS.mkdir(parents=True, exist_ok=True)
     benchmarks = sorted({r["benchmark"] for r in rows if r["case_kind"] == "mutant"})
-    # Technical failures and UNKNOWN results are excluded from the kill-rate denominator.
     fig, ax = plt.subplots(figsize=(7, 4))
     for benchmark in benchmarks:
         p = []
@@ -316,21 +335,24 @@ def runCompleteness(exe, invalids, mutants):
     return rows
 
 
-# Reload graphs from CSV files without rerunning the experiments.
+def readCsvRows(path):
+    if not path.is_file():
+        print(f"Skipping missing CSV (no saved results): {path}")
+        return []
+    with path.open("r", newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
 def reloadGraphs(performance_path, completeness_path):
-    performance_rows = []
-    with performance_path.open("r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            performance_rows.append(row)
-    completeness_rows = []
-    with completeness_path.open("r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            completeness_rows.append(row)
-    performanceGraph(performance_rows)
-    completenessGraphs(completeness_rows)
-    print(f"Reloaded graphs from {performance_path} and {completeness_path} into {GRAPHS}")
+    p_rows = readCsvRows(performance_path)
+    c_rows = readCsvRows(completeness_path)
+    if p_rows:
+        performanceGraph(p_rows)
+    if c_rows:
+        completenessGraphs(c_rows)
+    if not p_rows and not c_rows:
+        raise FileNotFoundError("No saved benchmark CSV rows found. Enable an experiment to create results, or place the appendix CSV files under results/appendix.")
+    print(f"Reloaded graphs from saved CSV files into {GRAPHS}")
 
 
 def main():
@@ -356,21 +378,20 @@ def main():
     else:
         print("Skipping completeness experiment (RUN_COMPLETENESS_EXPERIMENT=False).")
 
-    actual_errors = [r for r in all_rows if r["run_status"] == "error"]
-    unexpected = [r for r in all_rows if r["run_status"] == "unexpected_result"]
     if not (RUN_PERFORMANCE_EXPERIMENT or RUN_COMPLETENESS_EXPERIMENT):
         print("reloading graphs from CSV files to ensure they are up to date.")
         reloadGraphs(PERFORMANCE_CSV, COMPLETENESS_CSV)
-    else:
-        timeouts = [r for r in all_rows if r["run_status"] == "timeout"]
-        inconclusive = [r for r in all_rows if r["run_status"] == "inconclusive"]
-        unsupported = [r for r in all_rows if r["run_status"] == "unsupported"]
-        controls = [r for r in all_rows if r["case_kind"] == "invalid_control"]
-        control_failures = sum(r["run_status"] != "completed" for r in controls)
-        print(f"\nDone. Results: {OUT}")
-        print(f"Invalid controls not correctly rejected: {control_failures}/{len(controls)}")
-        print(f"Timeouts: {len(timeouts)}; inconclusive/unknown: {len(inconclusive)}; " f"unsupported: {len(unsupported)}; "
-            f"unexpected results: {len(unexpected)}; " f"actual errors: {len(actual_errors)}")
+    actual_errors = [r for r in all_rows if r["run_status"] == "error"]
+    unexpected = [r for r in all_rows if r["run_status"] == "unexpected_result"]
+    timeouts = [r for r in all_rows if r["run_status"] == "timeout"]
+    inconclusive = [r for r in all_rows if r["run_status"] == "inconclusive"]
+    unsupported = [r for r in all_rows if r["run_status"] == "unsupported"]
+    controls = [r for r in all_rows if r["case_kind"] == "invalid_control"]
+    control_failures = sum(r["run_status"] != "completed" for r in controls)
+    print(f"\nDone. Results: {OUT}")
+    print(f"Invalid controls not correctly rejected: {control_failures}/{len(controls)}")
+    print(f"Timeouts: {len(timeouts)}; inconclusive/unknown: {len(inconclusive)}; " f"unsupported: {len(unsupported)}; "
+        f"unexpected results: {len(unexpected)}; " f"actual errors: {len(actual_errors)}")
 
     return 1 if actual_errors or unexpected else 0
 

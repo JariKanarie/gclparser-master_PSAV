@@ -70,8 +70,7 @@ runBenchmark file k n mode invariantTimeoutMs = do
               else pure (stmt prog, "disabled")
           let satCheck formula = if usePruning then checkSatisfiable tenv formula else pure True
           (stats, paths) <- generatePaths satCheck k (prog { stmt = stmts })
-          (verdict, sizeSum, pathsVerified, failedPath) <-
-            verifyBenchmarkPaths useSimplifier (wlp k) tenv paths
+          (verdict, sizeSum, pathsVerified, failedPath) <- verifyBenchmarkPaths useSimplifier (wlp k) tenv paths
           end <- getCurrentTime
           let seconds = realToFrac (diffUTCTime end start) :: Double
           emitBenchmarkResult file k n mode verdict seconds
