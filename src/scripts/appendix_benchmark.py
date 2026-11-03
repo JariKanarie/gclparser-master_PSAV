@@ -5,11 +5,12 @@ import sys
 import time
 import statistics
 import subprocess
+import matplotlib.pyplot as plt
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-RUN_COMPLETENESS_EXPERIMENT = False
 RUN_PERFORMANCE_EXPERIMENT = False
+RUN_COMPLETENESS_EXPERIMENT = False
 # Performance settings
 PERFORMANCE_N = 10
 PERFORMANCE_K = [10, 20, 30, 40, 50, 60]
@@ -20,7 +21,6 @@ PERFORMANCE_REPEATS = 1  # Use 3 for more stable final measurements.
 MUTANT_N = range(2, 11)
 COMPLETENESS_MODE = "all"
 DEFAULT_K = 50
-K_BY_BENCHMARK = {name: DEFAULT_K for name in ("memberOf", "divByN", "pullUp", "bsort", "find12", "min")}
 # these will take long
 PERFORMANCE_TIMEOUT_SECONDS = 2000
 PERFORMANCE_INVARIANT_TIMEOUT_MS = 1000
@@ -41,10 +41,8 @@ OUT = ROOT / "results" / "appendix"
 GRAPHS = OUT / "graphs"
 PERFORMANCE_CSV = OUT / "appendix_performance.csv"
 COMPLETENESS_CSV = OUT / "appendix_completeness.csv"
-ORIGINALS = {name: BENCH / f"{name}.gcl" for name in ("memberOf", "divByN", "pullUp", "bsort")}
-INVALID_STEMS = {name: f"invalid{name[0].upper()}{name[1:]}" for name in ("memberOf", "divByN", "pullUp", "bsort", "find12", "min")}
 COLUMNS = [
-    "experiment", "benchmark", "case_kind", "file", "N", "K", "heuristics", "expected_verdict", "verdict", "kill", "elapsed_time", "wall_seconds", "paths_inspected",
+    "experiment", "benchmark", "kind", "file", "N", "K", "heuristics", "expected_verdict", "verdict", "kill", "elapsed_time", "wall_seconds", "paths_inspected",
     "paths_pruned", "full_paths_generated", "paths_verified", "total_wlp_size", "max_depth", "invariant_status", "run_status", "detail"
 ]
 
@@ -179,7 +177,6 @@ def append_csv(path, row):
         csv.DictWriter(f, fieldnames=COLUMNS).writerow(row)
 
 def performanceGraph(rows):
-    import matplotlib.pyplot as plt
     GRAPHS.mkdir(parents=True, exist_ok=True)
     modes = ["none"] + [mode for mode in PERFORMANCE_MODES if mode != "none"]
     baseline_style = {"color": "black", "linestyle": "--", "alpha": 0.5, "linewidth": 2.0, "marker": "s", "zorder": 5}
@@ -237,14 +234,36 @@ def performanceGraph(rows):
     #     if old.exists():
     #         old.unlink()
 
-def completenessGraphs(rows):
-    import matplotlib.pyplot as plt
+def performanceNoneBaselineGraph(rows):
     GRAPHS.mkdir(parents=True, exist_ok=True)
-    benchmarks = sorted({r["benchmark"] for r in rows if r["case_kind"] == "mutant"})
+    benchmarks = ["bsort", "divByN", "memberOf"]
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for benchmark in benchmarks:
+        points = []
+        for k in PERFORMANCE_K:
+            times = [float(r["elapsed_time"]) for r in rows if r["experiment"] == "performance" and r["benchmark"] == benchmark and r["heuristics"] == "none" 
+                     and int(r["K"]) == k and r["verdict"] in ("ACCEPT", "REJECT") and r.get("elapsed_time", "") and float(r["elapsed_time"]) > 0]
+            if times:
+                points.append((k, statistics.median(times)))
+        if points:
+            ax.plot([x for x, _ in points], [y for _, y in points], marker="o", label=f"{benchmark}.gcl")
+    ax.set_xlabel("K")
+    ax.set_ylabel("Verification time (seconds)")
+    ax.set_title("Baseline performance (no heuristics)")
+    ax.set_xticks(PERFORMANCE_K)
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(GRAPHS / "performance_none_baseline.png", dpi=200)
+    plt.close(fig)
+
+def completenessGraphs(rows):
+    GRAPHS.mkdir(parents=True, exist_ok=True)
+    benchmarks = sorted({r["benchmark"] for r in rows if r["kind"] == "mutant"})
     fig, ax = plt.subplots(figsize=(7, 4))
     for benchmark in benchmarks:
         p = []
-        s = [r for r in rows if r["benchmark"] == benchmark and r["case_kind"] == "mutant"]
+        s = [r for r in rows if r["benchmark"] == benchmark and r["kind"] == "mutant"]
         for n in MUTANT_N:
             tested = [r for r in s if int(r["N"]) == n and r["verdict"] in ("ACCEPT", "REJECT")]
             if tested:
@@ -260,7 +279,7 @@ def completenessGraphs(rows):
     fig, ax = plt.subplots(figsize=(7, 4))
     for benchmark in benchmarks:
         p = []
-        s = [r for r in rows if r["benchmark"] == benchmark and r["case_kind"] == "mutant"]
+        s = [r for r in rows if r["benchmark"] == benchmark and r["kind"] == "mutant"]
         for n in MUTANT_N:
             times = [float(r["elapsed_time"]) for r in s if int(r["N"]) == n and r["verdict"] == "REJECT" and r["elapsed_time"]]
             if times:
@@ -296,6 +315,7 @@ def runPerformance(exe, originals):
                     print(f"[{done}/{tot}] {benchmark}, N={PERFORMANCE_N}, K={k}, {mode}: {row['verdict']}, " f"accepted={row.get('accepted_at_K', '')}, " 
                           f"paths={row.get('paths_inspected', '')}, " f"full-complete={row.get('full_complete_accept', '')}, " f"time={row['elapsed_time'] or row['wall_seconds']}s")
     performanceGraph(rows)
+    performanceNoneBaselineGraph(rows)
     print(f"Saved {PERFORMANCE_CSV} and runtime graph in {GRAPHS}")
     return rows
 
@@ -350,6 +370,7 @@ def reloadGraphs(performance_path, completeness_path):
     c_rows = readCsvRows(completeness_path)
     if p_rows:
         performanceGraph(p_rows)
+        performanceNoneBaselineGraph(p_rows)
     if c_rows:
         completenessGraphs(c_rows)
     if not p_rows and not c_rows:
@@ -399,4 +420,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        raise SystemExit(main())
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(2)

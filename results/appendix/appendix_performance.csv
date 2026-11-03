@@ -1,4 +1,4 @@
-experiment,benchmark,case_kind,file,N,K,heuristics,expected_verdict,verdict,kill,elapsed_time,wall_seconds,paths_inspected,paths_pruned,full_paths_generated,paths_verified,total_wlp_size,max_depth,invariant_status,run_status,detail
+experiment,benchmark,kind,file,N,K,heuristics,expected_verdict,verdict,kill,elapsed_time,wall_seconds,paths_inspected,paths_pruned,full_paths_generated,paths_verified,total_wlp_size,max_depth,invariant_status,run_status,detail
 performance,memberOf,original,examples/GCL/benchmark/memberOf.gcl,10,10,none,ACCEPT,ACCEPT,false,4.5071589e-2,0.056,7,0,3,3,81,K_LIMIT,disabled,completed,
 performance,memberOf,original,examples/GCL/benchmark/memberOf.gcl,10,10,prune,ACCEPT,ACCEPT,false,0.162420966,0.184,7,3,0,0,0,K_LIMIT,disabled,completed,
 performance,memberOf,original,examples/GCL/benchmark/memberOf.gcl,10,10,simplify,ACCEPT,ACCEPT,false,4.6223202e-2,0.057,7,0,3,3,58,K_LIMIT,disabled,completed,
@@ -137,3 +137,9 @@ performance,bsort,original,examples/GCL/benchmark/bsort.gcl,10,50,simplify,ACCEP
 performance,bsort,original,examples/GCL/benchmark/bsort.gcl,10,50,invariants,ACCEPT,ACCEPT,false,1.199052369,1.215,1,0,1,1,88,6,complete,completed,
 performance,bsort,original,examples/GCL/benchmark/bsort.gcl,10,50,prune+invariants,ACCEPT,ACCEPT,false,1.196850312,1.211,1,0,1,1,88,6,complete,completed,
 performance,bsort,original,examples/GCL/benchmark/bsort.gcl,10,50,all,ACCEPT,ACCEPT,false,1.376824079,1.391,1,0,1,1,68,6,complete,completed,
+performance,bsort,original,examples\GCL\benchmark\bsort.gcl,10,60,none,ACCEPT,ACCEPT,false,1848.1510276,1927.729,342021,0,57471,57471,511751852,K_LIMIT,disabled,completed,
+performance,bsort,original,examples\GCL\benchmark\bsort.gcl,10,60,prune,ACCEPT,ACCEPT,false,330.5506371,330.634,8462,3698,0,0,0,K_LIMIT,disabled,completed,
+performance,bsort,original,examples\GCL\benchmark\bsort.gcl,10,60,simplify,ACCEPT,REJECT,false,741.4225001,742.049,342021,0,57471,25691,34708207,K_LIMIT,disabled,unexpected_result,
+performance,bsort,original,examples\GCL\benchmark\bsort.gcl,10,60,invariants,ACCEPT,ACCEPT,false,1.0674994,1.097,1,0,1,1,88,6,complete,completed,
+performance,bsort,original,examples\GCL\benchmark\bsort.gcl,10,60,prune+invariants,ACCEPT,ACCEPT,false,1.0530002,1.341,1,0,1,1,88,6,complete,completed,
+performance,bsort,original,examples\GCL\benchmark\bsort.gcl,10,60,all,ACCEPT,ACCEPT,false,1.0589992,1.088,1,0,1,1,68,6,complete,completed,
