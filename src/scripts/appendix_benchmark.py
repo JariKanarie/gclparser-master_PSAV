@@ -9,8 +9,6 @@ import matplotlib.pyplot as plt
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-RUN_PERFORMANCE_EXPERIMENT = False
-RUN_COMPLETENESS_EXPERIMENT = False
 # Performance settings
 PERFORMANCE_N = 10
 PERFORMANCE_K = [10, 20, 30, 40, 50, 60]
@@ -21,8 +19,9 @@ PERFORMANCE_REPEATS = 1  # Use 3 for more stable final measurements.
 MUTANT_N = range(2, 11)
 COMPLETENESS_MODE = "all"
 DEFAULT_K = 50
+K_BY_BENCHMARK = {name: DEFAULT_K for name in ("memberOf", "divByN", "pullUp", "bsort", "find12", "min")}
 # these will take long
-PERFORMANCE_TIMEOUT_SECONDS = 2000
+PERFORMANCE_TIMEOUT_SECONDS = 4000
 PERFORMANCE_INVARIANT_TIMEOUT_MS = 1000
 COMPLETENESS_TIMEOUT_SECONDS = 600
 COMPLETENESS_INVARIANT_TIMEOUT_MS = 1000
@@ -41,6 +40,8 @@ OUT = ROOT / "results" / "appendix"
 GRAPHS = OUT / "graphs"
 PERFORMANCE_CSV = OUT / "appendix_performance.csv"
 COMPLETENESS_CSV = OUT / "appendix_completeness.csv"
+ORIGINALS = {name: BENCH / f"{name}.gcl" for name in ("memberOf", "divByN", "pullUp", "bsort")}
+INVALID_STEMS = {name: f"invalid{name[0].upper()}{name[1:]}" for name in ("memberOf", "divByN", "pullUp", "bsort", "find12", "min")}
 COLUMNS = [
     "experiment", "benchmark", "kind", "file", "N", "K", "heuristics", "expected_verdict", "verdict", "kill", "elapsed_time", "wall_seconds", "paths_inspected",
     "paths_pruned", "full_paths_generated", "paths_verified", "total_wlp_size", "max_depth", "invariant_status", "run_status", "detail"
