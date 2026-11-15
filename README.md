@@ -30,6 +30,22 @@ The file `.ghci` in the project root contains ghci options that will also be tur
 -XNamedFieldPuns
 ```
 
+Or run with:
+
+```
+> cabal run
+```
+
+to get an interactive cli to verify your program
+
+Alternatively run with:
+
+```
+> cabal run Main -- --benchmark --file "examples/GCL/benchmark/pullUp.gcl" --k 40 --n 10 --heuristics all --invariant-timeout-ms 1000
+```
+
+To run the benchmarker, all fields need to be supplied beforehand.
+
 
 #### Usage
 
