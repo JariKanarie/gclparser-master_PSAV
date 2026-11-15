@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+RUN_PERFORMANCE_EXPERIMENT = True
+RUN_COMPLETENESS_EXPERIMENT = True
 # Performance settings
 PERFORMANCE_N = 10
 PERFORMANCE_K = [10, 20, 30, 40, 50, 60]
