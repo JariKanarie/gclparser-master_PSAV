@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-RUN_PERFORMANCE_EXPERIMENT = True
-RUN_COMPLETENESS_EXPERIMENT = True
+RUN_PERFORMANCE_EXPERIMENT = False
+RUN_COMPLETENESS_EXPERIMENT = False
 # Performance settings
 PERFORMANCE_N = 10
 PERFORMANCE_K = [10, 20, 30, 40, 50, 60]
@@ -42,6 +42,7 @@ OUT = ROOT / "results" / "appendix"
 GRAPHS = OUT / "graphs"
 PERFORMANCE_CSV = OUT / "appendix_performance.csv"
 COMPLETENESS_CSV = OUT / "appendix_completeness.csv"
+BOUNDARIES_CSV = OUT / "mutation_boundaries_by_N.csv"
 ORIGINALS = {name: BENCH / f"{name}.gcl" for name in ("memberOf", "divByN", "pullUp", "bsort")}
 INVALID_STEMS = {name: f"invalid{name[0].upper()}{name[1:]}" for name in ("memberOf", "divByN", "pullUp", "bsort", "find12", "min")}
 COLUMNS = [
@@ -296,6 +297,64 @@ def completenessGraphs(rows):
     fig.savefig(GRAPHS / "completeness_time_to_kill_vs_N.png", dpi=180)
     plt.close(fig)
 
+def mutationBoundaries():
+    if not COMPLETENESS_CSV.is_file():
+        print(f"Cannot generate mutation boundaries: {COMPLETENESS_CSV} not found.")
+        return
+    mut = {}
+    with COMPLETENESS_CSV.open("r", newline="", encoding="utf-8") as f:
+        rows = csv.DictReader(f)
+        for r in rows:
+            bench = r.get("benchmark", "")
+            k = r.get("kind", r.get("case_kind", ""))
+            if r.get("experiment") != "completeness" or k != "mutant":
+                continue
+            try:
+                if int(r["K"]) != K_BY_BENCHMARK.get(bench, DEFAULT_K):
+                    continue
+            except (ValueError, KeyError):
+                continue
+            if r.get("heuristics") != COMPLETENESS_MODE:
+                continue
+            path = r.get("file", "").replace("\\", "/")
+            if not path:
+                continue
+            key = (bench, path)
+            mut.setdefault(key, []).append(r)
+    res = []
+    for (bench, path), runs in sorted(mut.items()):
+        v = [r.get("verdict", "") for r in runs]
+        if v and all(v == "UNSUPPORTED" for v in v):
+            high = "UNSUPPORTED"
+            low = "UNSUPPORTED"
+        else:
+            acc = [r for r in runs if r.get("verdict") == "ACCEPT"]
+            rej = [r for r in runs if r.get("verdict") == "REJECT"]
+            if acc:
+                highest_n = max(int(r["N"]) for r in acc)
+                highest_runs = [r for r in acc if int(r["N"]) == highest_n]
+                no_paths_verified = all(r.get("paths_verified", "").strip() == "0" for r in highest_runs)
+                high = str(highest_n)
+                if no_paths_verified:
+                    high += "*"
+            else:
+                high = "-"
+
+            if rej:
+                low = str(min(int(r["N"]) for r in rej))
+            else:
+                low = "-"
+        res.append({"benchmark": bench, "mutant_file": Path(path).name, "highest_ACCEPT_N": high, "lowest_REJECT_N": low})
+
+    fields = ["benchmark", "mutant_file", "highest_ACCEPT_N", "lowest_REJECT_N"]
+    BOUNDARIES_CSV.parent.mkdir(parents=True, exist_ok=True)
+    with BOUNDARIES_CSV.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(res)
+
+    print(f"Generated {BOUNDARIES_CSV} ({len(res)} unique mutant files)")
+
 
 def runPerformance(exe, originals):
     reset_csv(PERFORMANCE_CSV)
@@ -371,11 +430,13 @@ def readCsvRows(path):
 def reloadGraphs(performance_path, completeness_path):
     p_rows = readCsvRows(performance_path)
     c_rows = readCsvRows(completeness_path)
+    mutationBoundaries()
     if p_rows:
         performanceGraph(p_rows)
         performanceNoneBaselineGraph(p_rows)
     if c_rows:
         completenessGraphs(c_rows)
+        mutationBoundaries()
     if not p_rows and not c_rows:
         raise FileNotFoundError("No saved benchmark CSV rows found. Enable an experiment to create results, or place the appendix CSV files under results/appendix.")
     print(f"Reloaded graphs from saved CSV files into {GRAPHS}")
